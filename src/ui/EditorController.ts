@@ -27,6 +27,7 @@ export class EditorController {
   private readonly fileInput = requireElement<HTMLInputElement>('file-input');
   private timer: number | undefined;
   private dragDepth = 0;
+  private activeRoom = '';
 
   constructor(private readonly callbacks: EditorCallbacks) {
     this.textarea.addEventListener('input', () => {
@@ -94,8 +95,19 @@ export class EditorController {
     }, DEBOUNCE_MS);
   }
 
+  /**
+   * Tint the `## Room` heading the player is currently standing in, so the
+   * link between the document and the game is visible at a glance. Purely
+   * cosmetic - it never scrolls the editor while the user is typing.
+   */
+  setActiveRoom(title: string): void {
+    if (title === this.activeRoom) return;
+    this.activeRoom = title;
+    this.renderHighlight();
+  }
+
   private renderHighlight(): void {
-    this.highlight.innerHTML = highlightMarkdown(this.textarea.value);
+    this.highlight.innerHTML = highlightMarkdown(this.textarea.value, this.activeRoom);
     this.syncScroll();
   }
 

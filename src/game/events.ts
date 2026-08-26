@@ -25,6 +25,20 @@ export interface DialogPayload {
   lines: string[];
 }
 
+export interface EquipStat {
+  label: string;
+  value: string;
+  direction: 'up' | 'down' | 'same';
+}
+
+/** The compact comparison card shown when standing near equipment. */
+export interface EquipPayload {
+  name: string;
+  kind: 'weapon' | 'armor';
+  stats: EquipStat[];
+  current: string;
+}
+
 export interface VictoryPayload {
   dungeonTitle: string;
   bossName: string;
@@ -32,6 +46,10 @@ export interface VictoryPayload {
   questsTotal: number;
   gold: number;
   keys: number;
+  roomsVisited: number;
+  roomsTotal: number;
+  weapon: string;
+  armor: string;
 }
 
 export interface RuntimeEvents {
@@ -40,6 +58,7 @@ export interface RuntimeEvents {
   toast: ToastPayload;
   narration: NarrationPayload;
   dialog: DialogPayload;
+  equip: EquipPayload | null;
   boss: BossPayload | null;
   victory: VictoryPayload;
   death: { roomTitle: string };
@@ -66,4 +85,6 @@ export interface SceneContext {
   notifyVictory(bossName: string): void;
   publishHud(): void;
   openDialog(lines: string[]): void;
+  /** An item that would have been wasted was left on the floor. */
+  notifyWasted(itemId: string, message: string): void;
 }

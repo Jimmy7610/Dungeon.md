@@ -48,6 +48,24 @@ It is deliberately **one mechanic done well** rather than a half-finished RPG.
 
 ---
 
+## The campaign
+
+The built-in **Developer Dungeon** is a 17-room run: 14 on the main path and 3 secret rooms you only
+find by looking.
+
+```text
+The Repository → Bug Basement → Cache Corridor → Null Hall → Dependency Hell
+  → Package Graveyard → Merge Chamber → CI Gauntlet → Firewall Gate → Memory Leak
+  → Deprecated Wing → Refactor Lab → Legacy Archive → Legacy Vault
+```
+
+Secrets: **404 Room** (off Null Hall), **Stash Overflow** (off Package Graveyard) and **Root Cellar**
+(off Legacy Archive). Each one has a door straight back, so you can never strand yourself.
+
+Difficulty ramps by mixing enemy types, adding elites and moving equipment forward rather than by
+inflating enemy counts. The mandatory path alone is enough to beat LEGACY CODE - the secret loot
+(Root Access, Root Armor, `sudo`) makes the run easier and more fun, never obligatory.
+
 ## How Markdown maps to the game
 
 | Markdown             | Dungeon.md         |
@@ -58,9 +76,14 @@ It is deliberately **one mechanic done well** rather than a half-finished RPG.
 | `- [ ] Quest`        | Quest              |
 | `> Text`             | NPC/message        |
 | `[Door](#room)`      | Door               |
+| `- Merge Axe`        | Weapon             |
+| `- Firewall Vest`    | Armor              |
 | `enemy` fenced block | Enemy spawn        |
+| `elite: true`        | Elite enemy        |
 | `boss` fenced block  | Boss               |
 | `door` fenced block  | Locked/custom door |
+| `hidden: true`       | Secret door        |
+| `room` fenced block  | Room theme         |
 
 Plain paragraphs become room narration, shown briefly when you walk in. Text before the first `##`
 becomes the first room's opening lines. Everything else in the document — other fenced code blocks,
@@ -70,8 +93,17 @@ tables, raw HTML — is ignored by the game.
 
 ## Features
 
+- **A 17-room campaign.** 14 main rooms and 3 optional secret rooms, roughly 15-25 minutes, ending
+  with the LEGACY CODE boss. All of it is defined by the built-in Markdown - there is no
+  campaign-specific code in the game.
 - **Live editing.** Edit the Markdown, and the dungeon rebuilds after a short debounce. Change
-  `count: 3` to `count: 7` and seven slimes appear.
+  `count: 3` to `count: 7` and seven slimes appear; flip `elite: false` to `true` and they grow an
+  aura.
+- **Equipment.** Six weapons that genuinely play differently (reach, arc, speed, knockback) and four
+  armour tiers that absorb damage before your hearts. Walking over a weapon never swaps it: a
+  comparison card appears and you press E.
+- **Elites and secrets.** `elite: true` makes a bigger, tougher, visibly marked enemy. `hidden: true`
+  turns a door into a seam in the wall that only reveals itself when you walk up to it.
 - **A real game.** Movement, melee combat with knockback and hit flashes, invulnerability frames,
   chasing enemies, a boss with a telegraphed charge, a projectile volley and an enrage phase.
 - **Quests that complete themselves.** The parser infers what each checkbox means — collect an item,
@@ -79,7 +111,9 @@ tables, raw HTML — is ignored by the game.
   actually contains, case-insensitively.
 - **Locked doors.** A `door` directive with `requires:` stays shut until you carry that item.
 - **Deterministic rooms.** The room id is hashed to pick one of six hand-authored layouts and to
-  seed object placement, so the same Markdown always produces the same dungeon.
+  seed object placement and decoration, so the same Markdown always produces the same dungeon.
+- **15 room themes.** A `room` directive repaints the floor, walls, ambient glow and decoration
+  without touching collision, physics or doors.
 - **Load your own `.md`.** File picker or drag-and-drop. Nothing is uploaded; there is no server.
 - **Export your progress.** Ticks the checkboxes you completed and downloads the updated Markdown,
   leaving the rest of the document byte-for-byte identical.
@@ -148,19 +182,65 @@ Any paragraph inside a room becomes narration, shown for a few seconds on entry.
 - Git Key
 ```
 
-| Item                                       | Effect                                     |
-| ------------------------------------------ | ------------------------------------------ |
-| `Sword`                                    | Melee weapon                               |
-| `Debugger`                                 | Stronger melee weapon                      |
-| `Health Potion`, `Coffee Potion`           | Restores 2 hearts                          |
-| `Git Key`, `Silver Key`                    | Key item; opens `requires:` doors          |
-| `Gold`                                     | Adds to the gold counter                   |
-| `Stack Overflow Scroll`                    | Temporary damage boost (20 s)              |
-| `Rubber Duck`                              | Collectible                                |
-| Anything else                              | Generic collectible                        |
+Walking over an item picks it up. **Weapons and armour are different**: standing next to one shows a
+comparison card, and you press `E` to equip it, so a stray step never costs you your weapon.
 
-Names are matched case-insensitively, and unknown names containing "key", "potion", "sword" or
-"gold" inherit the matching behaviour.
+Items that would be wasted are left on the floor - a Health Potion at full health stays put and says
+so, rather than vanishing for nothing.
+
+#### Weapons
+
+One weapon slot. Every weapon multiplies the same swing, so they feel different rather than just
+bigger. The Debugger is the 1.00x baseline.
+
+| Weapon                | Damage | Speed  | Reach | Notes                          |
+| --------------------- | ------ | ------ | ----- | ------------------------------ |
+| `Debugger`            | 1.00x  | 1.00x  | 1.00x | Fast and dependable            |
+| `Refactor Blade`      | 1.30x  | faster | 1.15x | A clean straight upgrade       |
+| `Stack Trace Spear`   | 1.45x  | slower | 1.65x | Long reach, narrow arc         |
+| `Dependency Hammer`   | 1.85x  | slow   | 1.00x | Enormous knockback             |
+| `Merge Axe`           | 2.08x  | slow-ish | 1.26x | Wide arc, late-game workhorse |
+| `Root Access`         | 2.40x  | ~1.00x | 1.35x | Secret; excellent, not broken  |
+
+`Sword` from the original syntax still works, as a slightly weaker Debugger.
+
+#### Armor
+
+One armour slot. Armour absorbs damage **before** your hearts, and overflow carries into health:
+with 1 armour, a 2-damage hit removes the armour and one heart. Equipping armour fills it.
+
+| Armor           | Capacity |
+| --------------- | -------- |
+| `Cache Jacket`  | 1        |
+| `Firewall Vest` | 2        |
+| `Kernel Plate`  | 3        |
+| `Root Armor`    | 5 (secret) |
+
+#### Recovery
+
+| Item             | Effect                                              |
+| ---------------- | --------------------------------------------------- |
+| `Coffee Potion`  | +2 hearts                                            |
+| `Health Potion`  | +3 hearts                                            |
+| `Energy Drink`   | +1 heart and ~20% movement speed for 4 seconds        |
+| `Patch Kit`      | +2 armour, capped at your armour's capacity           |
+| `Full Restore`   | Hearts and armour back to full                        |
+| `Heart Upgrade`  | +1 maximum heart for the rest of the run              |
+
+#### Special
+
+| Item                    | Effect                                                    |
+| ----------------------- | --------------------------------------------------------- |
+| `Rubber Duck`           | Permanently ~10% faster attacks (does not stack)           |
+| `Stack Overflow Scroll` | Your next *connecting* hit does 3x damage                  |
+| `Hotfix`                | Survive one death with 2 hearts and brief invulnerability  |
+| `Commit Shield`         | Blocks one incoming hit entirely, before armour            |
+| `sudo`                  | +15% damage and +1 armour capacity (once)                  |
+| `Git Key`, `Silver Key` | Opens doors with `requires:`                               |
+| `Gold`                  | Score counter, shown on the victory screen                 |
+
+Anything else becomes a generic collectible, and unknown names containing "key", "potion", "vest",
+"sword" and friends inherit the matching behaviour.
 
 ### Quests
 
@@ -211,6 +291,10 @@ All fields are optional (defaults: `bug`, `1`, `30`, `1`). Types: `bug`, `skelet
 `dependency`, `null-pointer`. Anything else becomes a generic creature plus a warning. Values are
 clamped (count 1–12, health 1–999, damage 0–5).
 
+Add `elite: true` for a tougher variant: ~1.35x larger, ~1.9x health (unless you set `health:`
+yourself), +1 damage, slightly faster, resistant to knockback, and marked with an aura so it reads
+at a glance. `elite` accepts `true/false/yes/no/on/off/1/0`; anything else is treated as `false`.
+
 ### Boss directive
 
 ````md
@@ -235,8 +319,27 @@ requires: Git Key
 ```
 ````
 
-`target` is required; `label` and `requires` are optional. Without the required item the door shows
-`Requires: Git Key` and refuses to open.
+`target` is required; `label`, `requires` and `hidden` are optional. Without the required item the
+door shows `Requires: Git Key` and refuses to open.
+
+Add `hidden: true` to make a secret door. It renders as a faint seam instead of a lit archway, has a
+slightly larger interaction radius so it is forgiving to stand next to, and its prompt is marked with
+a ✦. It is findable, not invisible.
+
+### Room theme directive
+
+````md
+```room
+theme: firewall
+```
+````
+
+Applies to the `##` room it appears under. Themes change the floor palette, wall accents, ambient
+glow and non-colliding decoration only - never physics, collision, doors or spawns.
+
+Available themes: `repository`, `basement`, `cache`, `null`, `dependency`, `graveyard`, `merge`,
+`ci`, `firewall`, `memory`, `deprecated`, `refactor`, `archive`, `vault`, `secret`. An unknown theme
+warns and falls back to `repository`.
 
 ---
 
@@ -307,14 +410,17 @@ src/
     rng.ts                    seeded PRNG + string hash (deterministic rooms)
   markdown/
     types.ts                  GameDefinition and friends
+    items.ts                  the item registry (categories + effects)
+    themes.ts                 the room theme list
     slug.ts                   stable room ids
     sanitize.ts               untrusted text -> plain text
-    directives.ts             enemy/boss/door directives + item catalogue
+    directives.ts             enemy/boss/door/room directives
     parser.ts                 Markdown -> GameDefinition
     parser.test.ts            parser test suite
   game/
-    config.ts                 every tunable number
+    config.ts                 every tunable number + theme palettes
     events.ts                 runtime event map + scene contract
+    items/weapons.ts          weapon registry (damage/speed/reach/arc)
     GameRuntime.ts            owns Phaser, state, quests, room transitions
     art/
       pixels.ts               hand-drawn pixel art as text
@@ -327,9 +433,10 @@ src/
       BootScene.ts            generates textures
       DungeonScene.ts         the room game loop
     systems/
-      GameState.ts            health, inventory, quests, defeated things
+      GameState.ts            health, armour, equipment, specials, pickups
+      gameState.test.ts       items, armour, weapons, damage pipeline
       QuestSystem.ts          trigger matching
-      CombatSystem.ts         damage, melee arc, knockback
+      CombatSystem.ts         pure melee geometry and knockback maths
   ui/
     AppController.ts          wires DOM to runtime
     EditorController.ts       textarea, debounce, file load, drag & drop
@@ -339,7 +446,9 @@ src/
     highlight.ts              editor syntax highlighting
     exportMarkdown.ts         tick completed checkboxes, download
     ui.test.ts                highlighter + export test suite
-  demo/developerDungeon.ts    the built-in adventure
+  demo/
+    developerDungeon.ts       the built-in 17-room campaign
+    campaign.test.ts          validates the campaign end to end
   styles/main.css             the whole UI
 ```
 

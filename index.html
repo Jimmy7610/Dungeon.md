@@ -125,11 +125,18 @@
               <div class="hud-row hud-top">
                 <div class="hud-block">
                   <div class="hearts" id="hearts" role="img" aria-label="Health"></div>
-                  <div class="hud-sub" id="weapon-label">Bare Hands</div>
+                  <div class="armor-row" id="armor-row" role="img" aria-label="Armor" hidden></div>
+                  <div class="hud-sub weapon-line">
+                    <span class="hud-tag">WPN</span>
+                    <span id="weapon-label">Bare Hands</span>
+                    <span class="hud-sep" id="armor-label" hidden></span>
+                  </div>
+                  <div class="passives" id="passives" hidden></div>
                 </div>
                 <div class="hud-block hud-right">
                   <div class="room-title" id="room-title"></div>
                   <div class="hud-sub" id="carry-label"></div>
+                  <div class="hud-sub gold" id="gold-label" hidden></div>
                 </div>
               </div>
 
@@ -148,6 +155,13 @@
               <div class="narration" id="narration" hidden>
                 <div class="narration-title" id="narration-title"></div>
                 <div class="narration-body" id="narration-body"></div>
+              </div>
+
+              <div class="equip-card" id="equip-card" hidden>
+                <div class="equip-name" id="equip-name"></div>
+                <ul class="equip-stats" id="equip-stats"></ul>
+                <div class="equip-current" id="equip-current"></div>
+                <div class="equip-action">E — Equip</div>
               </div>
 
               <div class="prompt" id="prompt" hidden></div>

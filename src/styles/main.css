@@ -1203,3 +1203,193 @@ kbd {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ------------------------------------------------------- expanded HUD bits */
+
+.armor-row {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 220px;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.shard {
+  color: var(--accent);
+  filter: drop-shadow(0 0 5px rgb(99 224 255 / 45%));
+}
+
+.shard.empty {
+  color: #33415c;
+  filter: none;
+}
+
+.weapon-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.hud-tag {
+  color: var(--muted-2);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.hud-sep {
+  color: var(--muted);
+}
+
+.hud-sep::before {
+  content: "· ";
+}
+
+.hud-sub.gold {
+  color: var(--warm);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.passives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.passive {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid rgb(99 224 255 / 28%);
+  border-radius: 5px;
+  background: rgb(99 224 255 / 10%);
+  color: #d7f6ff;
+  font-size: 10.5px;
+  line-height: 1;
+}
+
+.passive-hotfix {
+  border-color: rgb(126 224 138 / 40%);
+  background: rgb(126 224 138 / 12%);
+  color: #b8f0c4;
+}
+
+.passive-shield {
+  border-color: rgb(203 213 225 / 34%);
+  background: rgb(203 213 225 / 10%);
+  color: #e2e8f0;
+}
+
+.passive-overcharge {
+  border-color: rgb(245 185 66 / 45%);
+  background: rgb(245 185 66 / 14%);
+  color: #ffe9bd;
+}
+
+.passive-sudo {
+  border-color: rgb(167 139 250 / 45%);
+  background: rgb(167 139 250 / 14%);
+  color: #e9d5ff;
+}
+
+/* ------------------------------------------------------------- equip card */
+
+.equip-card {
+  align-self: center;
+  width: min(260px, 76%);
+  margin-top: auto;
+  padding: 10px 13px;
+  border: 1px solid rgb(99 224 255 / 34%);
+  border-radius: var(--radius-sm);
+  background: rgb(6 9 15 / 92%);
+  animation: narrate 0.18s ease-out;
+}
+
+.equip-name {
+  margin-bottom: 6px;
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.equip-stats {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.equip-stats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.equip-stats .value {
+  font-weight: 700;
+}
+
+.equip-stats .value.up {
+  color: var(--good);
+}
+
+.equip-stats .value.down {
+  color: var(--danger);
+}
+
+.equip-stats .value.same {
+  color: var(--muted-2);
+}
+
+.equip-current {
+  margin-bottom: 7px;
+  color: var(--muted-2);
+  font-size: 10.5px;
+}
+
+.equip-current:empty {
+  display: none;
+}
+
+.equip-action {
+  color: #d7f6ff;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+}
+
+.hud.compact .equip-card {
+  width: min(210px, 88%);
+  padding: 7px 9px;
+}
+
+.hud.compact .equip-card .equip-name {
+  font-size: 10px;
+}
+
+.hud.compact .equip-stats li,
+.hud.compact .equip-action {
+  font-size: 9.5px;
+}
+
+/* Active room highlight in the editor */
+.editor-highlight .active-room {
+  display: inline-block;
+  width: 100%;
+  background: rgb(99 224 255 / 10%);
+  box-shadow:
+    inset 3px 0 0 var(--accent),
+    -20px 0 0 rgb(99 224 255 / 10%);
+}

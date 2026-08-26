@@ -22,7 +22,7 @@ export interface Interactable {
  */
 export class DoorObject implements Interactable {
   readonly kind = 'door';
-  readonly radius = TILE * 1.9;
+  readonly radius: number;
   private readonly parts: Phaser.GameObjects.GameObject[] = [];
 
   constructor(
@@ -38,7 +38,39 @@ export class DoorObject implements Interactable {
     const width = horizontal ? TILE * 1.6 : TILE * 0.9;
     const height = horizontal ? TILE * 0.9 : TILE * 1.6;
     const locked = Boolean(definition.requires);
-    const tone = definition.broken ? 0x6b7280 : locked ? COLORS.accentWarm : COLORS.accent;
+    const secret = definition.hidden && !definition.broken;
+    // Secret doors are easy to walk past but forgiving to stand next to.
+    this.radius = secret ? TILE * 2.3 : TILE * 1.9;
+    const tone = definition.broken
+      ? 0x6b7280
+      : secret
+        ? 0x8a93a7
+        : locked
+          ? COLORS.accentWarm
+          : COLORS.accent;
+
+    if (secret) {
+      // No frame and no arrow: just a hairline seam in the masonry.
+      const seam = scene.add
+        .rectangle(x, y, width * 0.75, height * 0.75, tone, 0.06)
+        .setDepth(5)
+        .setStrokeStyle(1, tone, 0.35);
+      const crack = scene.add
+        .rectangle(x, y, horizontal ? width * 0.5 : 2, horizontal ? 2 : height * 0.5, tone, 0.4)
+        .setDepth(6);
+      this.parts.push(seam, crack);
+      if (!reducedMotion) {
+        scene.tweens.add({
+          targets: crack,
+          alpha: { from: 0.18, to: 0.5 },
+          duration: 2200,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
+      return;
+    }
 
     const frame = scene.add.rectangle(x, y, width + 8, height + 8, 0x0b0f18).setDepth(4);
     const glow = scene.add
@@ -46,7 +78,7 @@ export class DoorObject implements Interactable {
       .setDepth(5)
       .setStrokeStyle(2, tone, 0.9);
     const icon = scene.add
-      .text(x, y, definition.broken ? '?' : locked ? '\u{1F512}' : '▶', {
+      .text(x, y, definition.broken ? '?' : locked ? '\u{1F512}' : '\u25b6', {
         fontFamily: 'ui-monospace, monospace',
         fontSize: '14px',
         color: definition.broken ? '#9aa4b2' : locked ? '#f5b942' : '#63e0ff',
@@ -74,7 +106,8 @@ export class DoorObject implements Interactable {
     if (this.definition.requires && !this.hasRequirement()) {
       return `Requires: ${this.definition.requires}`;
     }
-    return `E — ${this.definition.label}`;
+    const prefix = this.definition.hidden ? 'E — ✦ ' : 'E — ';
+    return `${prefix}${this.definition.label}`;
   }
 
   canOpen(): boolean {
