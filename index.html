@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Dungeon.md turns ordinary Markdown into a playable top-down dungeon game. Headings become rooms, lists become loot, checkboxes become quests."
+    />
+    <meta name="color-scheme" content="dark" />
+    <title>Dungeon.md — Write Markdown. Play Games.</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1017'/%3E%3Cpath d='M7 23V9h5c4 0 6 2.6 6 7s-2 7-6 7H7zm4-3h1c1.7 0 2.6-1.2 2.6-4S13.7 12 12 12h-1v8z' fill='%2363e0ff'/%3E%3Ccircle cx='23' cy='21' r='2.4' fill='%23f5b942'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div class="app" id="app" data-mode="edit">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" width="26" height="26">
+              <rect width="32" height="32" rx="8" fill="#111725" />
+              <rect x="5.5" y="5.5" width="21" height="21" rx="5" fill="none" stroke="#63e0ff" stroke-width="1.5" opacity=".55" />
+              <path d="M11 22V10h3.6c3.2 0 5 2.2 5 6s-1.8 6-5 6H11zm3.2-2.6h.6c1.4 0 2.2-1.1 2.2-3.4s-.8-3.4-2.2-3.4h-.6z" fill="#63e0ff" />
+              <circle cx="22" cy="21" r="2" fill="#f5b942" />
+            </svg>
+          </span>
+          <div class="brand-text">
+            <h1>Dungeon<span>.md</span></h1>
+            <p>Write Markdown. Play Games.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span class="badge" id="dungeon-name">The Developer Dungeon</span>
+          <button type="button" class="btn ghost" id="btn-help" aria-haspopup="dialog">
+            Syntax Guide
+          </button>
+          <a
+            class="btn ghost"
+            href="https://github.com/Jimmy7610/Dungeon.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            >GitHub</a
+          >
+        </div>
+      </header>
+
+      <div class="tabs" role="tablist" aria-label="View">
+        <button
+          type="button"
+          role="tab"
+          id="tab-editor"
+          aria-selected="true"
+          aria-controls="pane-editor"
+          data-tab="editor"
+        >
+          Editor
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-game"
+          aria-selected="false"
+          aria-controls="pane-game"
+          data-tab="game"
+        >
+          Game
+        </button>
+      </div>
+
+      <main class="panes">
+        <section
+          class="pane pane-editor"
+          id="pane-editor"
+          role="tabpanel"
+          aria-labelledby="editor-heading"
+        >
+          <div class="pane-head">
+            <h2 id="editor-heading">Markdown</h2>
+            <span class="pane-meta" id="editor-meta"></span>
+          </div>
+          <div class="editor-wrap" id="editor-wrap">
+            <label class="sr-only" for="markdown-input">Dungeon Markdown source</label>
+            <pre class="editor-highlight" id="editor-highlight" aria-hidden="true"></pre>
+            <textarea
+              id="markdown-input"
+              spellcheck="false"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              wrap="off"
+              aria-describedby="editor-hint"
+            ></textarea>
+            <div class="drop-hint" id="drop-hint" aria-hidden="true">
+              <strong>Drop your .md file</strong>
+              <span>It never leaves your browser</span>
+            </div>
+          </div>
+          <p id="editor-hint" class="sr-only">
+            Edit the Markdown to rebuild the dungeon. Headings create rooms, list items create
+            items, checkboxes create quests.
+          </p>
+          <div class="warnings" id="warnings" hidden>
+            <button type="button" class="warnings-head" id="warnings-toggle" aria-expanded="false">
+              <span class="warnings-count" id="warnings-count">0</span> parser notes
+              <span class="chev" aria-hidden="true">▸</span>
+            </button>
+            <ul class="warnings-list" id="warnings-list" hidden></ul>
+          </div>
+        </section>
+
+        <section
+          class="pane pane-game"
+          id="pane-game"
+          role="tabpanel"
+          aria-labelledby="game-heading"
+        >
+          <div class="pane-head">
+            <h2 id="game-heading">Live Dungeon</h2>
+            <span class="pane-meta" id="game-meta">Rebuilt from your Markdown</span>
+          </div>
+
+          <div class="stage" id="stage">
+            <div class="game-host" id="game-host"></div>
+
+            <div class="hud" id="hud" aria-live="off">
+              <div class="hud-row hud-top">
+                <div class="hud-block">
+                  <div class="hearts" id="hearts" role="img" aria-label="Health"></div>
+                  <div class="hud-sub" id="weapon-label">Bare Hands</div>
+                </div>
+                <div class="hud-block hud-right">
+                  <div class="room-title" id="room-title"></div>
+                  <div class="hud-sub" id="carry-label"></div>
+                </div>
+              </div>
+
+              <div class="boss-bar" id="boss-bar" hidden>
+                <div class="boss-name" id="boss-name"></div>
+                <div class="boss-track"><div class="boss-fill" id="boss-fill"></div></div>
+              </div>
+
+              <div class="quest-log" id="quest-log" hidden>
+                <div class="quest-log-head">Quests</div>
+                <ul id="quest-list"></ul>
+              </div>
+
+              <div class="toasts" id="toasts" aria-live="polite"></div>
+
+              <div class="narration" id="narration" hidden>
+                <div class="narration-title" id="narration-title"></div>
+                <div class="narration-body" id="narration-body"></div>
+              </div>
+
+              <div class="prompt" id="prompt" hidden></div>
+            </div>
+
+            <div class="stage-overlay" id="empty-state" hidden>
+              <div class="panel">
+                <h3>No rooms yet</h3>
+                <p>Add a <code>## Room Name</code> heading to begin.</p>
+                <p class="muted">Everything else — loot, quests, doors, monsters — hangs off it.</p>
+              </div>
+            </div>
+
+            <div class="stage-overlay" id="dialog-overlay" hidden>
+              <div class="panel dialog">
+                <div class="dialog-mark" aria-hidden="true">&rdquo;</div>
+                <div id="dialog-body"></div>
+                <button type="button" class="btn" id="dialog-close">Close (Esc)</button>
+              </div>
+            </div>
+
+            <div class="stage-overlay" id="death-overlay" hidden>
+              <div class="panel result fail">
+                <div class="result-tag">BUILD FAILED</div>
+                <h3 id="death-title">You died</h3>
+                <p class="muted">Try again?</p>
+                <div class="panel-actions">
+                  <button type="button" class="btn primary" id="btn-restart-room">
+                    Restart Room
+                  </button>
+                  <button type="button" class="btn" id="btn-death-editor">Back to Editor</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="stage-overlay" id="victory-overlay" hidden>
+              <div class="panel result win">
+                <div class="result-tag ok">BUILD PASSED</div>
+                <pre class="build-log" id="victory-log"></pre>
+                <h3>YOU BEAT THE README</h3>
+                <p class="muted">Your Markdown survived production.</p>
+                <div class="panel-actions">
+                  <button type="button" class="btn primary" id="btn-play-again">Play Again</button>
+                  <button type="button" class="btn" id="btn-victory-editor">Back to Editor</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="toolbar">
+        <div class="toolbar-group">
+          <button type="button" class="btn primary" id="btn-mode">▶ Play</button>
+          <button type="button" class="btn" id="btn-load">Load .md</button>
+          <button type="button" class="btn" id="btn-export">Export .md</button>
+          <button type="button" class="btn" id="btn-reset">Reset</button>
+          <input
+            type="file"
+            id="file-input"
+            accept=".md,.markdown,.txt,text/markdown,text/plain"
+            hidden
+          />
+        </div>
+        <p class="controls-hint">
+          <kbd>WASD</kbd><kbd>↑↓←→</kbd> move · <kbd>Space</kbd> attack · <kbd>E</kbd> interact ·
+          <kbd>Esc</kbd> close
+        </p>
+      </footer>
+    </div>
+
+    <div class="modal" id="help-modal" hidden>
+      <div
+        class="modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="help-title"
+        tabindex="-1"
+      >
+        <div class="modal-head">
+          <h2 id="help-title">Markdown → Dungeon</h2>
+          <button type="button" class="btn icon" id="help-close" aria-label="Close syntax guide">
+            ✕
+          </button>
+        </div>
+        <div class="modal-body" id="help-body"></div>
+      </div>
+    </div>
+
+    <noscript>
+      <p style="padding: 2rem; color: #e6ecf5; font-family: sans-serif">
+        Dungeon.md is a client-side game and needs JavaScript enabled.
+      </p>
+    </noscript>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
