@@ -12,6 +12,7 @@ import {
   ROOM_ROWS,
   TILE,
   TRANSITION_MS,
+  shadeColor,
   themePalette,
   type ThemePalette,
 } from '../config.ts';
@@ -134,52 +135,41 @@ export class DungeonScene extends Phaser.Scene {
 
   private drawRoom(): void {
     const rng = createRng(`${this.room.id}:decor`);
-    const palette = this.palette;
-    const floor = this.add.graphics().setDepth(0);
-    const decor = this.add.graphics().setDepth(1);
-    const walls = this.add.graphics().setDepth(2);
+    const graphics = this.add.graphics();
 
     for (let row = 0; row < ROOM_ROWS; row++) {
       for (let col = 0; col < ROOM_COLS; col++) {
         const x = col * TILE;
         const y = row * TILE;
         if (this.layout.walls[row]?.[col]) continue;
-        floor.fillStyle((col + row) % 2 === 0 ? palette.floor : palette.floorAlt, 1);
-        floor.fillRect(x, y, TILE, TILE);
-        if (rng.next() < 0.09) {
-          floor.fillStyle(palette.detail, 1);
-          const size = rng.int(2, 4);
-          floor.fillRect(x + rng.int(4, 24), y + rng.int(4, 24), size, size);
-        }
+        this.paintFloorTile(graphics, x, y, col, row, rng);
       }
     }
 
     // Grid lines keep the "developer tool" feel without fighting the art.
-    floor.lineStyle(1, 0x000000, 0.1);
+    graphics.lineStyle(1, 0x000000, 0.08);
     for (let col = 1; col < ROOM_COLS; col++) {
-      floor.lineBetween(col * TILE, 0, col * TILE, GAME_HEIGHT);
+      graphics.lineBetween(col * TILE, 0, col * TILE, GAME_HEIGHT);
     }
     for (let row = 1; row < ROOM_ROWS; row++) {
-      floor.lineBetween(0, row * TILE, GAME_WIDTH, row * TILE);
+      graphics.lineBetween(0, row * TILE, GAME_WIDTH, row * TILE);
     }
 
-    this.drawDecor(decor, rng);
+    this.drawDecor(graphics, rng);
 
     for (let row = 0; row < ROOM_ROWS; row++) {
       for (let col = 0; col < ROOM_COLS; col++) {
         if (!this.layout.walls[row]?.[col]) continue;
-        const x = col * TILE;
-        const y = row * TILE;
-        walls.fillStyle(palette.wall, 1);
-        walls.fillRect(x, y, TILE, TILE);
-        if (this.layout.walls[row + 1]?.[col] === false) {
-          walls.fillStyle(palette.wallTop, 1);
-          walls.fillRect(x, y, TILE, 7);
-          walls.fillStyle(palette.wallEdge, 1);
-          walls.fillRect(x, y + TILE - 5, TILE, 5);
-        }
+        this.paintWallTile(graphics, col, row, rng);
       }
     }
+
+    // The whole room is static, so it is flattened into a single texture:
+    // one draw call per frame instead of thousands of re-submitted rectangles.
+    const canvas = this.add.renderTexture(0, 0, GAME_WIDTH, GAME_HEIGHT).setOrigin(0, 0);
+    canvas.setDepth(0);
+    canvas.draw(graphics);
+    graphics.destroy();
 
     for (const rect of this.layout.wallRects) {
       const body = this.add
@@ -190,110 +180,376 @@ export class DungeonScene extends Phaser.Scene {
     }
   }
 
+  /** Floor tile with a little deterministic variation so it is not a flat field. */
+  private paintFloorTile(
+    graphics: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    col: number,
+    row: number,
+    rng: Rng,
+  ): void {
+    const palette = this.palette;
+    graphics.fillStyle((col + row) % 2 === 0 ? palette.floor : palette.floorAlt, 1);
+    graphics.fillRect(x, y, TILE, TILE);
+
+    // Inset panel edge: a lighter top-left and darker bottom-right lip reads as
+    // a real tile rather than a coloured square.
+    graphics.fillStyle(palette.wallTop, 0.06);
+    graphics.fillRect(x, y, TILE, 1);
+    graphics.fillRect(x, y, 1, TILE);
+    graphics.fillStyle(0x000000, 0.12);
+    graphics.fillRect(x, y + TILE - 1, TILE, 1);
+    graphics.fillRect(x + TILE - 1, y, 1, TILE);
+
+    const roll = rng.next();
+    if (roll < 0.07) {
+      // A hairline crack.
+      graphics.lineStyle(1, 0x000000, 0.2);
+      const cx = x + rng.int(6, 22);
+      const cy = y + rng.int(6, 22);
+      graphics.lineBetween(cx, cy, cx + rng.int(-7, 7), cy + rng.int(3, 8));
+    } else if (roll < 0.16) {
+      graphics.fillStyle(palette.detail, 0.6);
+      const size = rng.int(2, 3);
+      graphics.fillRect(x + rng.int(5, 24), y + rng.int(5, 24), size, size);
+    }
+  }
+
   /**
-   * Purely cosmetic dressing, drawn beneath every entity and seeded from the
-   * room id so the same Markdown always paints the same room. It never touches
-   * collision, doors or spawn points.
+   * Wall tile with a lit top face, a dark underside and corner shading, so
+   * rooms read as built rather than outlined.
+   */
+  private paintWallTile(
+    graphics: Phaser.GameObjects.Graphics,
+    col: number,
+    row: number,
+    rng: Rng,
+  ): void {
+    const palette = this.palette;
+    const x = col * TILE;
+    const y = row * TILE;
+    const openBelow = this.layout.walls[row + 1]?.[col] === false;
+    const openAbove = this.layout.walls[row - 1]?.[col] === false;
+    const openLeft = this.layout.walls[row]?.[col - 1] === false;
+    const openRight = this.layout.walls[row]?.[col + 1] === false;
+
+    // Walls are built from one themed colour in three values: a body darker
+    // than the floor so the room is framed, a mid face, and a lit cap. That
+    // reads as a raised block instead of a pale slab.
+    const body = shadeColor(palette.wall, 0.42);
+    const face = shadeColor(palette.wall, 0.78);
+
+    graphics.fillStyle(body, 1);
+    graphics.fillRect(x, y, TILE, TILE);
+
+    // Brick-ish seams.
+    graphics.fillStyle(0x000000, 0.18);
+    const offset = (row % 2) * (TILE / 2);
+    graphics.fillRect(x, y + TILE / 2 - 1, TILE, 1);
+    graphics.fillRect(x + ((offset + TILE / 2) % TILE), y, 1, TILE / 2);
+    graphics.fillRect(x + (offset % TILE), y + TILE / 2, 1, TILE / 2);
+
+    if (openBelow) {
+      // Lit cap along the top of an exposed wall, with a dark lip beneath it.
+      graphics.fillStyle(face, 1);
+      graphics.fillRect(x, y, TILE, 10);
+      graphics.fillStyle(palette.wallTop, 1);
+      graphics.fillRect(x, y, TILE, 3);
+      graphics.fillStyle(0xffffff, 0.1);
+      graphics.fillRect(x, y, TILE, 1);
+      graphics.fillStyle(0x000000, 0.45);
+      graphics.fillRect(x, y + TILE - 4, TILE, 4);
+      if (rng.next() < 0.22) {
+        graphics.fillStyle(palette.accent, 0.3);
+        graphics.fillRect(x + rng.int(6, 22), y + 5, rng.int(3, 7), 2);
+      }
+    }
+    if (openAbove) {
+      graphics.fillStyle(0x000000, 0.22);
+      graphics.fillRect(x, y, TILE, 3);
+    }
+    if (openLeft) {
+      graphics.fillStyle(0x000000, 0.18);
+      graphics.fillRect(x, y, 3, TILE);
+    }
+    if (openRight) {
+      graphics.fillStyle(0x000000, 0.18);
+      graphics.fillRect(x + TILE - 3, y, 3, TILE);
+    }
+  }
+
+  /**
+   * Purely cosmetic dressing, flattened into the room texture beneath every
+   * entity and seeded from the room id so the same Markdown always paints the
+   * same room.
+   *
+   * It never touches collision, and tiles used by doors, loot, enemies or the
+   * player's landing spot are skipped, so decoration can never hide something
+   * the player needs to see.
    */
   private drawDecor(decor: Phaser.GameObjects.Graphics, rng: Rng): void {
-    const palette = this.palette;
-    const tiles: { x: number; y: number }[] = [];
+    const blocked = new Set<string>();
+    const block = (x: number, y: number, radius = 1): void => {
+      const col = Math.floor(x / TILE);
+      const row = Math.floor(y / TILE);
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) blocked.add(`${col + dx},${row + dy}`);
+      }
+    };
+    for (const slot of this.layout.doors) {
+      block(slot.x, slot.y, 2);
+      block(slot.landing.x, slot.landing.y, 1);
+    }
+    for (const point of this.layout.itemPoints) block(point.x, point.y);
+    for (const point of this.layout.npcPoints) block(point.x, point.y);
+    for (const point of this.layout.enemyPoints) block(point.x, point.y, 0);
+    block(this.layout.defaultSpawn.x, this.layout.defaultSpawn.y, 1);
+    if (this.room.boss) block(this.layout.bossPoint.x, this.layout.bossPoint.y, 3);
+
+    const tiles: { col: number; row: number }[] = [];
     for (let row = 1; row < ROOM_ROWS - 1; row++) {
       for (let col = 1; col < ROOM_COLS - 1; col++) {
         if (this.layout.walls[row]?.[col]) continue;
-        tiles.push({ x: col * TILE, y: row * TILE });
+        if (blocked.has(`${col},${row}`)) continue;
+        tiles.push({ col, row });
       }
     }
-    const picks = rng.shuffle([...tiles]).slice(0, Math.min(26, Math.floor(tiles.length * 0.16)));
-    const accent = palette.accent;
 
+    const density = this.palette.decor === 'treasure' ? 0.12 : 0.075;
+    const picks = rng
+      .shuffle([...tiles])
+      .slice(0, Math.min(16, Math.round(tiles.length * density)));
     for (const tile of picks) {
-      const x = tile.x + 4;
-      const y = tile.y + 4;
-      switch (palette.decor) {
-        case 'code':
-          decor.fillStyle(accent, 0.12);
+      this.paintDecor(decor, tile.col * TILE, tile.row * TILE, rng);
+    }
+  }
+
+  /** One decoration stamp, in the current room's theme language. */
+  private paintDecor(g: Phaser.GameObjects.Graphics, x: number, y: number, rng: Rng): void {
+    const accent = this.palette.accent;
+    const dark = this.palette.wallEdge;
+
+    switch (this.palette.decor) {
+      case 'code': {
+        // Three repository motifs so the floor never turns into wallpaper:
+        // a file card, a commit graph, or a terminal fragment.
+        const motif = rng.int(0, 2);
+        if (motif === 0) {
+          g.fillStyle(dark, 0.35);
+          g.fillRect(x + 8, y + 6, 17, 20);
+          g.lineStyle(1, accent, 0.32);
+          g.strokeRect(x + 8, y + 6, 17, 20);
+          g.fillStyle(accent, 0.28);
           for (let line = 0; line < 3; line++) {
-            decor.fillRect(x, y + line * 6, rng.int(6, 20), 2);
+            g.fillRect(x + 11, y + 10 + line * 5, rng.int(4, 11), 2);
           }
-          break;
-        case 'cables':
-          decor.lineStyle(2, accent, 0.14);
-          decor.beginPath();
-          decor.moveTo(x, y + 12);
-          decor.lineTo(x + 10, y + 4);
-          decor.lineTo(x + 20, y + 18);
-          decor.strokePath();
-          break;
-        case 'blocks':
-          decor.lineStyle(1, accent, 0.18);
-          decor.strokeRect(x, y, 16, 12);
-          decor.strokeRect(x + 4, y + 8, 12, 10);
-          break;
-        case 'glitch':
-          decor.fillStyle(accent, 0.14);
-          decor.fillRect(x, y + rng.int(0, 10), rng.int(8, 22), 3);
-          decor.fillStyle(0xff5c4d, 0.08);
-          decor.fillRect(x + 2, y + rng.int(4, 16), rng.int(6, 14), 2);
-          break;
-        case 'nodes':
-          decor.fillStyle(accent, 0.2);
-          decor.fillCircle(x + 4, y + 6, 2.5);
-          decor.fillCircle(x + 18, y + 16, 2.5);
-          decor.lineStyle(1, accent, 0.12);
-          decor.lineBetween(x + 4, y + 6, x + 18, y + 16);
-          break;
-        case 'debris':
-          decor.fillStyle(accent, 0.1);
-          decor.fillRect(x, y + 10, rng.int(8, 16), rng.int(4, 8));
-          decor.fillRect(x + 12, y + 2, 6, 6);
-          break;
-        case 'split':
-          decor.fillStyle(tile.x < GAME_WIDTH / 2 ? 0x63e0ff : accent, 0.1);
-          decor.fillRect(x, y, 18, 3);
-          decor.fillRect(x, y + 10, 12, 3);
-          break;
-        case 'lines':
-          decor.fillStyle(accent, 0.12);
-          decor.fillRect(tile.x, y + 8, TILE, 2);
-          decor.fillStyle(accent, 0.35);
-          decor.fillCircle(x + 20, y + 9, 2);
-          break;
-        case 'leak':
-          decor.fillStyle(accent, 0.1);
-          decor.fillCircle(x + 10, y + 10, rng.int(5, 11));
-          decor.fillStyle(accent, 0.16);
-          decor.fillCircle(x + 6, y + 6, 2);
-          break;
-        case 'rust':
-          decor.fillStyle(accent, 0.12);
-          for (let dot = 0; dot < 5; dot++) {
-            decor.fillRect(x + rng.int(0, 20), y + rng.int(0, 20), 2, 2);
+        } else if (motif === 1) {
+          g.lineStyle(1, accent, 0.3);
+          g.lineBetween(x + 16, y + 3, x + 16, y + 29);
+          for (let dot = 0; dot < 3; dot++) {
+            const dy = y + 7 + dot * 8;
+            g.fillStyle(dark, 0.8);
+            g.fillCircle(x + 16, dy, 3);
+            g.lineStyle(1, accent, 0.5);
+            g.strokeCircle(x + 16, dy, 3);
+            if (dot === 1) g.lineBetween(x + 16, dy, x + 25, dy - 4);
           }
-          break;
-        case 'clean':
-          decor.lineStyle(1, accent, 0.16);
-          decor.lineBetween(x + 8, y + 2, x + 8, y + 14);
-          decor.lineBetween(x + 2, y + 8, x + 14, y + 8);
-          break;
-        case 'shelves':
-          decor.fillStyle(accent, 0.1);
-          decor.fillRect(x, y, 4, 20);
-          decor.fillRect(x + 6, y + 3, 4, 17);
-          decor.fillRect(x + 12, y + 1, 4, 19);
-          break;
-        case 'runes':
-          decor.lineStyle(1, accent, 0.2);
-          decor.strokeRect(x + 2, y + 2, 6, 16);
-          decor.strokeRect(x + 14, y + 2, 6, 16);
-          break;
-        case 'treasure':
-          decor.fillStyle(accent, 0.22);
-          decor.fillCircle(x + 8, y + 12, 3);
-          decor.fillCircle(x + 14, y + 15, 2);
-          decor.fillStyle(0xffffff, 0.25);
-          decor.fillRect(x + 7, y + 4, 2, 2);
-          break;
+        } else {
+          g.fillStyle(dark, 0.45);
+          g.fillRect(x + 5, y + 10, 22, 13);
+          g.fillStyle(accent, 0.45);
+          g.fillRect(x + 8, y + 13, 3, 2);
+          g.fillStyle(accent, 0.25);
+          g.fillRect(x + 13, y + 13, 9, 2);
+          g.fillRect(x + 8, y + 18, 12, 2);
+        }
+        break;
+      }
+      case 'cables': {
+        // Conduit with a junction box and the odd warning stud.
+        g.lineStyle(3, dark, 0.55);
+        g.lineBetween(x, y + 16, x + 32, y + 16);
+        g.lineStyle(1, accent, 0.3);
+        g.lineBetween(x, y + 15, x + 32, y + 15);
+        g.fillStyle(dark, 0.7);
+        g.fillRect(x + 12, y + 11, 9, 10);
+        g.fillStyle(accent, 0.55);
+        g.fillRect(x + 14, y + 13, 5, 2);
+        if (rng.next() < 0.4) {
+          g.fillStyle(0xffd24d, 0.5);
+          g.fillRect(x + 24, y + 22, 3, 3);
+        }
+        break;
+      }
+      case 'blocks': {
+        // Cache cells: some filled (hit), some hollow (miss).
+        for (let cell = 0; cell < 4; cell++) {
+          const cx = x + 5 + (cell % 2) * 12;
+          const cy = y + 5 + Math.floor(cell / 2) * 12;
+          g.lineStyle(1, accent, 0.3);
+          g.strokeRect(cx, cy, 9, 9);
+          if (rng.next() < 0.45) {
+            g.fillStyle(accent, 0.22);
+            g.fillRect(cx + 2, cy + 2, 5, 5);
+          }
+        }
+        break;
+      }
+      case 'glitch': {
+        // Torn scanline slabs, offset, with a chunk of floor simply missing.
+        for (let band = 0; band < 3; band++) {
+          const by = y + 5 + band * 8;
+          const shift = rng.int(-6, 6);
+          g.fillStyle(accent, 0.16);
+          g.fillRect(x + 3 + shift, by, rng.int(10, 24), 4);
+        }
+        g.fillStyle(0x05070c, 0.55);
+        g.fillRect(x + rng.int(4, 16), y + rng.int(4, 18), rng.int(5, 10), rng.int(4, 8));
+        break;
+      }
+      case 'nodes': {
+        // A module node wired to its neighbours.
+        g.lineStyle(1, accent, 0.22);
+        g.lineBetween(x + 16, y + 16, x + 32, y + rng.int(4, 28));
+        g.lineBetween(x + 16, y + 16, x, y + rng.int(4, 28));
+        g.fillStyle(dark, 0.7);
+        g.fillRect(x + 10, y + 10, 12, 12);
+        g.lineStyle(1, accent, 0.5);
+        g.strokeRect(x + 10, y + 10, 12, 12);
+        g.fillStyle(accent, 0.45);
+        g.fillRect(x + 14, y + 14, 4, 4);
+        break;
+      }
+      case 'debris': {
+        // A package crate with a corner broken off, plus fragments.
+        g.fillStyle(dark, 0.5);
+        g.fillRect(x + 5, y + 10, 18, 14);
+        g.lineStyle(1, accent, 0.3);
+        g.strokeRect(x + 5, y + 10, 18, 14);
+        g.fillStyle(this.palette.floor, 1);
+        g.fillRect(x + 17, y + 10, 6, 6);
+        g.fillStyle(accent, 0.25);
+        g.fillRect(x + 8, y + 14, 8, 2);
+        for (let bit = 0; bit < 3; bit++) {
+          g.fillRect(x + rng.int(2, 28), y + rng.int(24, 29), 2, 2);
+        }
+        break;
+      }
+      case 'split': {
+        // Two branches: cyan on the left of the room, orange on the right,
+        // with conflict markers where they meet.
+        const left = x < GAME_WIDTH / 2;
+        const tone = left ? 0x63e0ff : 0xff9f1c;
+        g.fillStyle(tone, 0.16);
+        for (let line = 0; line < 3; line++) {
+          const ly = y + 7 + line * 7;
+          g.fillRect(left ? x + 3 : x + 32 - rng.int(10, 22), ly, rng.int(10, 22), 3);
+        }
+        if (Math.abs(x + 16 - GAME_WIDTH / 2) < TILE * 1.5) {
+          g.fillStyle(0xffffff, 0.22);
+          for (let mark = 0; mark < 3; mark++) g.fillRect(x + 8 + mark * 6, y + 4, 4, 24);
+        }
+        break;
+      }
+      case 'lines': {
+        // Build lane with a pass/fail indicator.
+        g.fillStyle(dark, 0.45);
+        g.fillRect(x, y + 12, 32, 10);
+        g.fillStyle(accent, 0.2);
+        for (let dash = 0; dash < 4; dash++) g.fillRect(x + dash * 8 + 2, y + 16, 4, 2);
+        const pass = rng.next() < 0.6;
+        g.fillStyle(pass ? 0x7ee08a : 0xff5c4d, 0.75);
+        g.fillRect(x + 26, y + 5, 4, 4);
+        break;
+      }
+      case 'scan': {
+        // Firewall: horizontal scan bars and a shield node.
+        g.fillStyle(accent, 0.14);
+        for (let bar = 0; bar < 4; bar++) g.fillRect(x, y + 3 + bar * 8, 32, 2);
+        g.lineStyle(1, accent, 0.45);
+        g.strokeRect(x + 11, y + 10, 11, 13);
+        g.fillStyle(accent, 0.25);
+        g.fillRect(x + 14, y + 14, 5, 5);
+        break;
+      }
+      case 'leak': {
+        // Memory pooling out of a block and dripping.
+        g.fillStyle(accent, 0.13);
+        g.fillCircle(x + 15, y + 14, rng.int(7, 12));
+        g.fillStyle(accent, 0.22);
+        g.fillRect(x + 10, y + 6, 10, 8);
+        g.fillStyle(accent, 0.3);
+        for (let drip = 0; drip < 3; drip++) {
+          g.fillRect(x + 8 + drip * 6, y + 18 + rng.int(0, 8), 2, rng.int(2, 5));
+        }
+        break;
+      }
+      case 'rust': {
+        // Deprecated: a faded, crossed-out interface fragment.
+        g.fillStyle(dark, 0.4);
+        g.fillRect(x + 5, y + 8, 20, 16);
+        g.lineStyle(1, accent, 0.28);
+        g.strokeRect(x + 5, y + 8, 20, 16);
+        g.lineStyle(2, accent, 0.3);
+        g.lineBetween(x + 6, y + 9, x + 24, y + 23);
+        g.lineBetween(x + 24, y + 9, x + 6, y + 23);
+        break;
+      }
+      case 'clean': {
+        // Refactor: tidy indented blocks with bright guides.
+        g.lineStyle(1, accent, 0.3);
+        g.lineBetween(x + 7, y + 5, x + 7, y + 27);
+        g.fillStyle(accent, 0.3);
+        for (let line = 0; line < 4; line++) {
+          g.fillRect(x + 10 + (line % 2) * 4, y + 7 + line * 5, rng.int(8, 15), 2);
+        }
+        break;
+      }
+      case 'shelves': {
+        // Archive: file spines of varying height with amber labels.
+        for (let spine = 0; spine < 5; spine++) {
+          const sx = x + 3 + spine * 6;
+          const height = rng.int(12, 24);
+          g.fillStyle(dark, 0.55);
+          g.fillRect(sx, y + 28 - height, 4, height);
+          g.fillStyle(accent, 0.35);
+          g.fillRect(sx, y + 28 - height + 2, 4, 2);
+        }
+        break;
+      }
+      case 'runes': {
+        // Vault: fractured bracket structures.
+        g.lineStyle(2, accent, 0.3);
+        g.beginPath();
+        g.moveTo(x + 12, y + 4);
+        g.lineTo(x + 6, y + 10);
+        g.lineTo(x + 6, y + 22);
+        g.lineTo(x + 12, y + 28);
+        g.strokePath();
+        g.beginPath();
+        g.moveTo(x + 20, y + 4);
+        g.lineTo(x + 26, y + 10);
+        g.lineTo(x + 26, y + 22);
+        g.lineTo(x + 20, y + 28);
+        g.strokePath();
+        g.fillStyle(accent, 0.3);
+        g.fillRect(x + 15, y + 14, 3, 4);
+        break;
+      }
+      case 'treasure': {
+        // Secret: a data-vault ornament with glinting shards.
+        g.lineStyle(1, accent, 0.4);
+        g.strokeRect(x + 8, y + 8, 16, 16);
+        g.lineStyle(1, accent, 0.25);
+        g.strokeRect(x + 11, y + 11, 10, 10);
+        g.fillStyle(0xffe9a8, 0.35);
+        g.fillRect(x + 15, y + 15, 3, 3);
+        for (let glint = 0; glint < 2; glint++) {
+          g.fillStyle(0xffffff, 0.28);
+          g.fillRect(x + rng.int(2, 29), y + rng.int(2, 29), 2, 2);
+        }
+        break;
       }
     }
   }
@@ -354,6 +610,7 @@ export class DungeonScene extends Phaser.Scene {
       : undefined;
     const spawn = entry?.landing ?? this.layout.defaultSpawn;
     this.player = new Player(this, spawn.x, spawn.y);
+    this.player.setArmor(this.context.state.armorId);
     this.player.grantInvulnerability(this.time.now);
   }
 
@@ -631,8 +888,12 @@ export class DungeonScene extends Phaser.Scene {
   private equip(pickup: Pickup): void {
     const state = this.context.state;
     const spec = pickup.spec;
-    if (spec.category === 'armor') state.equipArmor(spec.id);
-    else state.equipWeapon(spec.id);
+    if (spec.category === 'armor') {
+      state.equipArmor(spec.id);
+      this.player.setArmor(state.armorId);
+    } else {
+      state.equipWeapon(spec.id);
+    }
 
     state.collectedItems.add(pickup.definition.id);
     this.burst(pickup.x, pickup.y, 0x63e0ff, 12);
@@ -729,6 +990,13 @@ export class DungeonScene extends Phaser.Scene {
     if (enemy.takeDamage(damage)) this.killEnemy(enemy);
   }
 
+  /**
+   * Weapon-specific swing art.
+   *
+   * Every shape is drawn from the *actual* range and arc used for the hit
+   * test, so what you see is exactly what you hit - the spear really is long,
+   * the axe really is wide.
+   */
   private showSlash(
     angle: number,
     range: number,
@@ -736,16 +1004,88 @@ export class DungeonScene extends Phaser.Scene {
     color: number,
     overcharged: boolean,
   ): void {
-    const slash = this.add.graphics().setDepth(22);
-    slash.fillStyle(overcharged ? 0xffd24d : color, 0.85);
+    const weapon = this.context.state.weapon;
+    const tint = overcharged ? 0xffd24d : color;
+    const graphics = this.add.graphics().setDepth(22);
     const half = ((arcDegrees / 180) * Math.PI) / 2;
-    slash.slice(this.player.x, this.player.y, range, angle - half, angle + half);
-    slash.fillPath();
+    const originX = this.player.x;
+    const originY = this.player.y;
+
+    if (weapon.id === 'stack-trace-spear') {
+      // A thin forward thrust rather than a sweep.
+      graphics.fillStyle(tint, 0.9);
+      const width = 7;
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+      const px = -ny * width;
+      const py = nx * width;
+      graphics.beginPath();
+      graphics.moveTo(originX + px * 0.5, originY + py * 0.5);
+      graphics.lineTo(originX + nx * range, originY + ny * range);
+      graphics.lineTo(originX - px * 0.5, originY - py * 0.5);
+      graphics.closePath();
+      graphics.fillPath();
+      graphics.fillStyle(0xffffff, 0.8);
+      graphics.fillRect(originX + nx * range - 2, originY + ny * range - 2, 4, 4);
+    } else if (weapon.impact === 'heavy') {
+      // Short, thick arc plus square shock fragments: weight over elegance.
+      graphics.fillStyle(tint, 0.62);
+      graphics.slice(originX, originY, range, angle - half, angle + half);
+      graphics.fillPath();
+      graphics.fillStyle(0xffffff, 0.4);
+      graphics.slice(originX, originY, range * 0.62, angle - half * 0.8, angle + half * 0.8);
+      graphics.fillPath();
+      for (let index = 0; index < 5; index++) {
+        const spread = angle - half + (half * 2 * index) / 4;
+        const distance = range * (0.75 + (index % 2) * 0.2);
+        graphics.fillStyle(tint, 0.9);
+        graphics.fillRect(
+          originX + Math.cos(spread) * distance - 3,
+          originY + Math.sin(spread) * distance - 3,
+          6,
+          6,
+        );
+      }
+    } else {
+      // Crescent: a filled arc with a brighter inner sweep.
+      graphics.fillStyle(tint, 0.62);
+      graphics.slice(originX, originY, range, angle - half, angle + half);
+      graphics.fillPath();
+      graphics.fillStyle(0x000000, 0);
+      graphics.fillStyle(tint, 0.35);
+      graphics.slice(originX, originY, range * 0.55, angle - half, angle + half);
+      graphics.fillPath();
+    }
+
+    if (weapon.id === 'root-access' || overcharged) {
+      // Terminal fragments trailing the swing.
+      for (let index = 0; index < 4; index++) {
+        const spread = angle - half + (half * 2 * (index + 0.5)) / 4;
+        const distance = range * 0.85;
+        const chunk = this.add
+          .image(
+            originX + Math.cos(spread) * distance,
+            originY + Math.sin(spread) * distance,
+            'chunk',
+          )
+          .setTint(overcharged ? 0xffffff : 0xefe6ff)
+          .setDepth(23);
+        this.tweens.add({
+          targets: chunk,
+          x: chunk.x + Math.cos(spread) * 14,
+          y: chunk.y + Math.sin(spread) * 14,
+          alpha: 0,
+          duration: 260,
+          onComplete: () => chunk.destroy(),
+        });
+      }
+    }
+
     this.tweens.add({
-      targets: slash,
-      alpha: { from: overcharged ? 0.8 : 0.55, to: 0 },
+      targets: graphics,
+      alpha: { from: overcharged ? 0.85 : 0.65, to: 0 },
       duration: PLAYER.attackDurationMs,
-      onComplete: () => slash.destroy(),
+      onComplete: () => graphics.destroy(),
     });
   }
 
@@ -821,7 +1161,10 @@ export class DungeonScene extends Phaser.Scene {
     const base = Math.atan2(this.player.y - boss.y, this.player.x - boss.x);
     for (const offset of [-0.35, 0, 0.35]) {
       const shard = this.physics.add.sprite(boss.x, boss.y, 'shard').setDepth(19);
-      shard.setScale(1.6);
+      shard.setScale(2.7);
+      if (!this.context.reducedMotion) {
+        this.tweens.add({ targets: shard, angle: 360, duration: 900, repeat: -1 });
+      }
       const body = shard.body as Phaser.Physics.Arcade.Body | null;
       body?.setVelocity(
         Math.cos(base + offset) * BOSS.projectileSpeed,

@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import type { BossDefinition } from '../../markdown/types.ts';
+import { BOSS_STATE_TEXTURES } from '../art/bosses.ts';
 import { BOSS, COLORS } from '../config.ts';
 
-const GLYPHS = ['{', '}', '</>', ';', 'null', '=>', '404', 'any'];
+const GLYPHS = ['{', '}', '</>', ';', 'null', '=>', '404', 'any', 'NaN', 'TODO'];
 
 export type BossAction = 'charge' | 'volley' | 'enrage';
 
@@ -23,6 +24,9 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   private enraged = false;
   private readonly glyphs: Phaser.GameObjects.Text[] = [];
   private readonly reducedMotion: boolean;
+  private readonly shadow: Phaser.GameObjects.Image;
+  private readonly halo: Phaser.GameObjects.Ellipse;
+  private readonly states: { idle: string; charge: string; enraged: string };
 
   constructor(
     scene: Phaser.Scene,
@@ -32,7 +36,9 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     reducedMotion: boolean,
     private readonly onAction: (action: BossAction) => void,
   ) {
-    super(scene, x, y, `boss-${definition.type}`);
+    const states = BOSS_STATE_TEXTURES[definition.type] ?? BOSS_STATE_TEXTURES['legacy-code']!;
+    super(scene, x, y, states.idle);
+    this.states = states;
     this.definition = definition;
     this.maxHealth = definition.health;
     this.health = definition.health;
@@ -48,6 +54,29 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     body?.setCollideWorldBounds(true);
     body?.setBounce(0.4);
 
+    // A pooled corruption aura behind the mass. Presence without touching the
+    // physics body, which is deliberately unchanged.
+    this.halo = scene.add
+      .ellipse(x, y, this.displayWidth * 1.5, this.displayHeight * 1.35, 0x2f8a52, 0.14)
+      .setDepth(15);
+    if (!reducedMotion) {
+      scene.tweens.add({
+        targets: this.halo,
+        scale: { from: 0.92, to: 1.1 },
+        alpha: { from: 0.1, to: 0.2 },
+        duration: 1500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+
+    this.shadow = scene.add
+      .image(x, y, 'shadow')
+      .setDepth(16)
+      .setDisplaySize(this.displayWidth * 0.78, this.displayHeight * 0.26)
+      .setAlpha(0.65);
+
     const now = scene.time.now;
     this.nextChargeAt = now + BOSS.chargeIntervalMs;
     this.nextVolleyAt = now + BOSS.volleyIntervalMs * 0.6;
@@ -62,7 +91,8 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
           })
           .setOrigin(0.5)
           .setDepth(17)
-          .setAlpha(0.75);
+          .setAlpha(0.75)
+          .setStroke('#04120a', 3);
         this.glyphs.push(glyph);
       }
     }
@@ -91,13 +121,17 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     const angle = Math.atan2(targetY - this.y, targetX - this.x);
 
     if (time < this.telegraphUntil) {
-      // Wind-up: stand still and flash so the charge can be dodged.
+      // Wind-up: stand still and switch to the bright warning state so the
+      // charge can be read and dodged.
       body.setVelocity(0, 0);
+      this.useState('charge');
       this.setTint(Math.floor(time / 80) % 2 ? COLORS.danger : 0xffffff);
     } else if (this.isCharging) {
       this.clearTint();
+      this.useState('charge');
     } else {
       this.clearTint();
+      this.useState(this.enraged ? 'enraged' : 'idle');
       const speed = this.enraged ? BOSS.speed * 1.35 : BOSS.speed;
       body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
 
@@ -122,6 +156,15 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
 
     this.setFlipX(targetX < this.x);
     this.updateGlyphs(time);
+    this.shadow.setPosition(this.x, this.y + this.displayHeight * 0.36);
+    this.halo.setPosition(this.x, this.y);
+    this.halo.setFillStyle(this.enraged ? 0xff2e2e : 0x2f8a52, this.enraged ? 0.18 : 0.14);
+  }
+
+  /** Swap between the boss's three visual states without touching mechanics. */
+  private useState(state: 'idle' | 'charge' | 'enraged'): void {
+    const key = this.states[state];
+    if (key && this.texture.key !== key) this.setTexture(key);
   }
 
   private updateGlyphs(time: number): void {
@@ -139,6 +182,8 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   override destroy(fromScene?: boolean): void {
     for (const glyph of this.glyphs) glyph.destroy();
     this.glyphs.length = 0;
+    this.shadow.destroy();
+    this.halo.destroy();
     super.destroy(fromScene);
   }
 }

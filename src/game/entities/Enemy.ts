@@ -26,6 +26,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   readonly profile: EnemyProfile;
   readonly elite: boolean;
   private aura: Phaser.GameObjects.Ellipse | undefined;
+  private eliteMark: Phaser.GameObjects.Text | undefined;
+  private readonly shadow: Phaser.GameObjects.Image | undefined;
+  private readonly frames: [string, string];
+  private frameTimer = 0;
+  private frameIndex = 0;
   maxHealth: number;
   health: number;
   nextContactAt = 0;
@@ -50,10 +55,17 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.maxHealth = health;
     this.health = health;
 
+    this.frames = [profile.texture, `${profile.texture}-b`];
+
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setScale(this.baseScale);
     this.setDepth(15);
+    this.shadow = scene.add
+      .image(x, y, 'shadow')
+      .setDepth(13)
+      .setDisplaySize(this.displayWidth * 0.7, this.displayHeight * 0.24)
+      .setAlpha(0.6);
     if (options.elite) this.createAura(scene, options.reducedMotion);
     const body = this.body as Phaser.Physics.Arcade.Body | null;
     body?.setSize(this.width * 0.66, this.height * 0.6);
@@ -80,6 +92,18 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const size = this.displayWidth * 1.5;
     this.aura = scene.add.ellipse(this.x, this.y, size, size * 0.75, 0xff5c4d, 0.16).setDepth(14);
     this.aura.setStrokeStyle(2, 0xff9f1c, 0.75);
+    // A chevron above the head, so elites are identifiable without relying on
+    // colour alone.
+    this.eliteMark = scene.add
+      .text(this.x, this.y - this.displayHeight * 0.62, '▲', {
+        fontFamily: 'ui-monospace, monospace',
+        fontSize: '11px',
+        color: '#ff9f1c',
+        stroke: '#1a0a04',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(22);
     if (!reducedMotion) {
       scene.tweens.add({
         targets: this.aura,
@@ -125,17 +149,32 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       body.setVelocity(this.wander.x, this.wander.y);
     }
 
+    // Two-frame animation: cheap, shared textures, no sprite sheets.
+    const speed = body.velocity.lengthSq() > 200 ? 220 : 460;
+    this.frameTimer += this.scene.game.loop.delta;
+    if (this.frameTimer >= speed) {
+      this.frameTimer = 0;
+      this.frameIndex = this.frameIndex === 0 ? 1 : 0;
+      const frame = this.frames[this.frameIndex];
+      if (frame && this.scene.textures.exists(frame)) this.setTexture(frame);
+    }
+
     // A gentle bob keeps idle enemies alive on screen without extra tweens.
     this.setScale(
       this.baseScale,
       this.baseScale * (1 + Math.sin(time / 220 + this.bobPhase) * 0.04),
     );
     this.aura?.setPosition(this.x, this.y);
+    this.eliteMark?.setPosition(this.x, this.y - this.displayHeight * 0.62);
+    this.shadow?.setPosition(this.x, this.y + this.displayHeight * 0.34);
   }
 
   override destroy(fromScene?: boolean): void {
     this.aura?.destroy();
     this.aura = undefined;
+    this.eliteMark?.destroy();
+    this.eliteMark = undefined;
+    this.shadow?.destroy();
     super.destroy(fromScene);
   }
 }
