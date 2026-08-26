@@ -27,7 +27,7 @@ export const PLAYER = {
   speed: 190,
   bodyWidth: 16,
   bodyHeight: 14,
-  scale: 3,
+  scale: 2.5,
   invulnerableMs: 1050,
   /** Baseline swing. Weapon profiles multiply these three. */
   baseDamage: 18,
@@ -76,7 +76,7 @@ export const ENEMY_PROFILES: Record<EnemyType, EnemyProfile> = {
     texture: 'enemy-bug',
     speed: 96,
     detectRadius: 240,
-    scale: 2.2,
+    scale: 1.65,
     contactCooldownMs: 850,
     label: 'Bug',
   },
@@ -84,7 +84,7 @@ export const ENEMY_PROFILES: Record<EnemyType, EnemyProfile> = {
     texture: 'enemy-skeleton',
     speed: 74,
     detectRadius: 260,
-    scale: 2.3,
+    scale: 1.725,
     contactCooldownMs: 900,
     label: 'Skeleton',
   },
@@ -92,7 +92,7 @@ export const ENEMY_PROFILES: Record<EnemyType, EnemyProfile> = {
     texture: 'enemy-slime',
     speed: 58,
     detectRadius: 200,
-    scale: 2.2,
+    scale: 1.65,
     contactCooldownMs: 800,
     label: 'Slime',
   },
@@ -100,7 +100,7 @@ export const ENEMY_PROFILES: Record<EnemyType, EnemyProfile> = {
     texture: 'enemy-dependency',
     speed: 82,
     detectRadius: 250,
-    scale: 2.3,
+    scale: 1.725,
     contactCooldownMs: 900,
     label: 'Dependency',
   },
@@ -108,7 +108,7 @@ export const ENEMY_PROFILES: Record<EnemyType, EnemyProfile> = {
     texture: 'enemy-null-pointer',
     speed: 112,
     detectRadius: 300,
-    scale: 2.2,
+    scale: 1.65,
     contactCooldownMs: 750,
     label: 'Null Pointer',
   },
@@ -116,14 +116,14 @@ export const ENEMY_PROFILES: Record<EnemyType, EnemyProfile> = {
     texture: 'enemy-generic',
     speed: 78,
     detectRadius: 230,
-    scale: 2.2,
+    scale: 1.65,
     contactCooldownMs: 850,
     label: 'Creature',
   },
 };
 
 export const BOSS = {
-  scale: 4,
+  scale: 1.6,
   speed: 62,
   chargeSpeed: 430,
   chargeTelegraphMs: 620,
@@ -135,6 +135,8 @@ export const BOSS = {
   enrageAt: 0.5,
   minionHealth: 20,
 } as const;
+
+export const ITEM_SCALE = 1.72;
 
 export const TRANSITION_MS = 260;
 export const NARRATION_MS = 4200;
@@ -196,6 +198,7 @@ export type DecorStyle =
   | 'split'
   | 'lines'
   | 'leak'
+  | 'scan'
   | 'rust'
   | 'clean'
   | 'shelves'
@@ -325,7 +328,7 @@ export const THEME_PALETTES: Record<RoomTheme, ThemePalette> = {
     accent: 0xff5c4d,
     glow: 0xff7a45,
     glowAlpha: 0.09,
-    decor: 'rust',
+    decor: 'scan',
   },
   memory: {
     ...BASE_THEME,
@@ -403,4 +406,16 @@ export const THEME_PALETTES: Record<RoomTheme, ThemePalette> = {
 
 export function themePalette(theme: RoomTheme): ThemePalette {
   return THEME_PALETTES[theme] ?? BASE_THEME;
+}
+
+/**
+ * Scale a packed RGB colour towards black (factor < 1) or white (factor > 1).
+ * Used to derive wall body/cap shades from one themed colour, so all 15 themes
+ * get the same lighting structure without hand-tuning 15 extra values.
+ */
+export function shadeColor(color: number, factor: number): number {
+  const r = Math.min(255, Math.round(((color >> 16) & 0xff) * factor));
+  const g = Math.min(255, Math.round(((color >> 8) & 0xff) * factor));
+  const b = Math.min(255, Math.round((color & 0xff) * factor));
+  return (r << 16) | (g << 8) | b;
 }
