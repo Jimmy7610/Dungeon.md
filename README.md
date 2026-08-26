@@ -3,6 +3,11 @@
 **Write Markdown. Play Games.**
 _Your README is now a dungeon._
 
+[![Deploy to GitHub Pages](https://github.com/Jimmy7610/Dungeon.md/actions/workflows/deploy.yml/badge.svg)](https://github.com/Jimmy7610/Dungeon.md/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-63e0ff.svg)](LICENSE)
+
+**▶ [Play it in your browser](https://jimmy7610.github.io/Dungeon.md/)**
+
 Dungeon.md turns ordinary Markdown into a playable top-down dungeon game. Headings become rooms,
 lists become loot, checkboxes become quests, links become doors, and fenced directives spawn enemies
 and bosses. You type on the left; the dungeon rebuilds itself on the right, live.
@@ -378,9 +383,15 @@ The build is fully static and uses a relative base path, so it works from any su
 **Vercel** — import the repo; framework preset "Vite", build command `npm run build`, output `dist`.
 No server functions required.
 
-**GitHub Pages** — `npm run build` and publish `dist/`, e.g. with an action that uploads
-`./dist` as the Pages artifact. Because `base` is `./`, a project page at
-`https://user.github.io/Dungeon.md/` works without extra configuration.
+**GitHub Pages** — already wired up. [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+runs on every push to `main` (and on demand via *Actions → Deploy to GitHub Pages → Run workflow*):
+it installs with `npm ci`, runs the tests and the typecheck, builds, and publishes `dist/` with the
+official Pages actions. The first run enables Pages itself, so no repository setting has to be
+flipped by hand.
+
+Vite's `base` is `./`, so the emitted asset URLs are relative and a project page served from
+`/Dungeon.md/` resolves them correctly — no environment-specific build, and `npm run dev` and
+`npm run preview` keep working unchanged at the root path.
 
 **Anything else** — it is a folder of static files.
 
