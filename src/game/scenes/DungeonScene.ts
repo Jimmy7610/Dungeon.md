@@ -206,7 +206,7 @@ export class DungeonScene extends Phaser.Scene {
   private spawnDoors(): void {
     for (const slot of this.layout.doors) {
       this.interactables.push(
-        new DoorObject(this, slot.x, slot.y, slot.door, slot.side, () =>
+        new DoorObject(this, slot.x, slot.y, slot.door, slot.side, this.context.reducedMotion, () =>
           this.context.state.hasKey(slot.door.requires ?? ''),
         ),
       );

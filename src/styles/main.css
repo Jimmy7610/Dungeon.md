@@ -268,7 +268,7 @@ kbd {
 
 .panes {
   display: grid;
-  grid-template-columns: minmax(340px, 1fr) minmax(460px, 1.12fr);
+  grid-template-columns: minmax(320px, 0.86fr) minmax(480px, 1.14fr);
   gap: 1px;
   min-height: 0;
   background: var(--border-soft);

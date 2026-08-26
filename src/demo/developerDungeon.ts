@@ -1,6 +1,10 @@
 /**
- * The built-in demo adventure. Every construct used here is supported by the
- * parser - if you add syntax to this file, add it to the parser and HELP too.
+ * The built-in demo adventure.
+ *
+ * Every construct used here is supported by the parser - if you add syntax to
+ * this file, add it to the parser and to the in-app syntax guide too. Source
+ * lines are kept under ~64 characters so the editor never needs to scroll
+ * sideways at the default split.
  */
 export const DEVELOPER_DUNGEON = `# The Developer Dungeon
 
@@ -8,12 +12,14 @@ The repository should have been archived years ago.
 
 ## The Repository
 
-A forgotten project waits in the dark. The CI badge is still red.
+A forgotten project waits in the dark.
+The CI badge is still red.
 
 - Sword
 - Coffee Potion
 
-> The last commit was made 1,827 days ago. The author's email no longer exists.
+> The last commit was 1,827 days ago.
+> The author's email no longer exists.
 
 - [ ] Find the Git Key
 - [ ] Defeat Legacy Code
@@ -42,7 +48,8 @@ damage: 1
 
 ## Dependency Hell
 
-Every package depends on another package. One of them depends on itself.
+Every package depends on another package.
+One of them depends on itself.
 
 \`\`\`enemy
 type: dependency
@@ -54,7 +61,8 @@ damage: 1
 - Rubber Duck
 - Gold
 
-> Updating one package broke twelve others. We do not speak of the lockfile.
+> Updating one package broke twelve others.
+> We do not speak of the lockfile.
 
 [Continue to Merge Chamber](#merge-chamber)
 

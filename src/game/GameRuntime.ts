@@ -60,7 +60,9 @@ export class GameRuntime implements SceneContext {
       audio: { noAudio: true },
       scale: {
         mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
+        // The host element centres the canvas with CSS; letting Phaser also
+        // centre it would apply the offset twice.
+        autoCenter: Phaser.Scale.NO_CENTER,
       },
       physics: {
         default: 'arcade',

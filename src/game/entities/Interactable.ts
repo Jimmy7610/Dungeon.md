@@ -31,6 +31,7 @@ export class DoorObject implements Interactable {
     readonly y: number,
     readonly definition: DoorDefinition,
     side: Side,
+    reducedMotion: boolean,
     private readonly hasRequirement: () => boolean,
   ) {
     const horizontal = side === 'north' || side === 'south';
@@ -54,14 +55,16 @@ export class DoorObject implements Interactable {
       .setDepth(6);
     this.parts.push(frame, glow, icon);
 
-    scene.tweens.add({
-      targets: glow,
-      alpha: { from: 0.16, to: 0.4 },
-      duration: 1400,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    if (!reducedMotion) {
+      scene.tweens.add({
+        targets: glow,
+        alpha: { from: 0.16, to: 0.4 },
+        duration: 1400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
   }
 
   promptText(): string {
