@@ -28,7 +28,8 @@ function highlightLinks(escaped: string): string {
   );
 }
 
-export function highlightMarkdown(source: string): string {
+export function highlightMarkdown(source: string, activeRoom = ''): string {
+  const activeHeading = activeRoom.trim().toLowerCase();
   const lines = escapeHtml(source).split('\n');
   const out: string[] = [];
   let fenceLang: string | null = null;
@@ -70,7 +71,11 @@ export function highlightMarkdown(source: string): string {
     if (heading) {
       const level = (heading[1] ?? '#').length;
       const className = level === 1 ? 'tok-h1' : level === 2 ? 'tok-h2' : 'tok-h3';
-      out.push(span(className, line));
+      const isActive =
+        level === 2 &&
+        activeHeading !== '' &&
+        (heading[2] ?? '').trim().toLowerCase() === activeHeading;
+      out.push(span(isActive ? `${className} active-room` : className, line));
       continue;
     }
 

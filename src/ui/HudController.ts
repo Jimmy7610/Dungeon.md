@@ -17,7 +17,11 @@ function element<T extends HTMLElement>(id: string): T {
  */
 export class HudController {
   private readonly hearts = element('hearts');
+  private readonly armorRow = element('armor-row');
   private readonly weapon = element('weapon-label');
+  private readonly armorLabel = element('armor-label');
+  private readonly gold = element('gold-label');
+  private readonly passives = element('passives');
   private readonly roomTitle = element('room-title');
   private readonly carry = element('carry-label');
   private readonly questLog = element('quest-log');
@@ -40,33 +44,66 @@ export class HudController {
   }
 
   private renderHud(snapshot: HudSnapshot): void {
-    this.hearts.replaceChildren();
-    for (let index = 0; index < snapshot.maxHealth; index++) {
-      const heart = document.createElement('span');
-      heart.className = index < snapshot.health ? 'heart' : 'heart empty';
-      heart.textContent = index < snapshot.health ? '♥' : '♡';
-      this.hearts.append(heart);
-    }
+    this.renderPips(this.hearts, snapshot.health, snapshot.maxHealth, 'heart', '♥', '♡');
     this.hearts.setAttribute('aria-label', `Health ${snapshot.health} of ${snapshot.maxHealth}`);
 
-    this.weapon.replaceChildren();
-    this.weapon.append(document.createTextNode(snapshot.weapon));
-    if (snapshot.boosted) {
-      const boost = document.createElement('span');
-      boost.className = 'boost';
-      boost.textContent = ' · boosted';
-      this.weapon.append(boost);
+    // Armour only takes up room once the player actually has some.
+    this.armorRow.hidden = snapshot.maxArmor === 0;
+    if (snapshot.maxArmor > 0) {
+      this.renderPips(this.armorRow, snapshot.armor, snapshot.maxArmor, 'shard', '◆', '◇');
+      this.armorRow.setAttribute(
+        'aria-label',
+        `Armor ${snapshot.armor} of ${snapshot.maxArmor}${
+          snapshot.armorName ? ` (${snapshot.armorName})` : ''
+        }`,
+      );
     }
+
+    this.weapon.textContent = snapshot.weapon;
+    this.armorLabel.textContent = snapshot.armorName;
+    this.armorLabel.hidden = snapshot.armorName === '';
 
     this.roomTitle.textContent = snapshot.roomTitle;
 
     const carried: string[] = [];
     for (const key of snapshot.keys) carried.push(`⚿ ${titleCase(key)}`);
-    if (snapshot.gold > 0) carried.push(`◆ ${snapshot.gold}`);
-    if (snapshot.trinkets.length > 0) carried.push(`✦ ${snapshot.trinkets.length}`);
     this.carry.textContent = carried.length > 0 ? carried.join('  ') : 'No key items';
+    this.carry.hidden = carried.length === 0;
+
+    this.gold.textContent = `◆ ${snapshot.gold}`;
+    this.gold.hidden = snapshot.gold === 0;
+
+    this.passives.replaceChildren();
+    this.passives.hidden = snapshot.passives.length === 0;
+    for (const passive of snapshot.passives) {
+      const chip = document.createElement('span');
+      chip.className = `passive passive-${passive.id}`;
+      chip.textContent = passive.label;
+      chip.title = passive.detail;
+      chip.setAttribute('aria-label', passive.detail);
+      this.passives.append(chip);
+    }
 
     this.renderQuests(snapshot.quests);
+  }
+
+  /** Hearts and armour shards share one renderer but never look alike. */
+  private renderPips(
+    host: HTMLElement,
+    filled: number,
+    total: number,
+    className: string,
+    fullGlyph: string,
+    emptyGlyph: string,
+  ): void {
+    host.replaceChildren();
+    for (let index = 0; index < total; index++) {
+      const pip = document.createElement('span');
+      const isFull = index < filled;
+      pip.className = isFull ? className : `${className} empty`;
+      pip.textContent = isFull ? fullGlyph : emptyGlyph;
+      host.append(pip);
+    }
   }
 
   private renderQuests(quests: QuestView[]): void {

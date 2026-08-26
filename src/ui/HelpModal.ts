@@ -10,68 +10,98 @@ const SYNTAX: SyntaxRow[] = [
   { markdown: '## Room Name', becomes: 'A playable room', note: 'Each H2 is one room.' },
   { markdown: 'Any paragraph', becomes: 'Room narration', note: 'Shown briefly on entry.' },
   { markdown: '- Git Key', becomes: 'Collectible item', note: 'Walk over it to pick it up.' },
+  { markdown: '- Merge Axe', becomes: 'Weapon', note: 'Press E to equip it.' },
+  { markdown: '- Kernel Plate', becomes: 'Armor', note: 'Press E to equip it.' },
   { markdown: '- [ ] Find the Git Key', becomes: 'Quest', note: 'Completes when you do it.' },
   { markdown: '- [x] Already done', becomes: 'Completed quest', note: 'Starts ticked.' },
   { markdown: '> Some text', becomes: 'Message stone', note: 'Press E to read it.' },
   { markdown: '[Go](#room-id)', becomes: 'Door', note: 'Links to another room heading.' },
-  { markdown: '```enemy', becomes: 'Enemy spawn', note: 'type, count, health, damage.' },
+  { markdown: '```room', becomes: 'Room theme', note: 'theme: one of the list below.' },
+  { markdown: '```enemy', becomes: 'Enemy spawn', note: 'type, count, health, damage, elite.' },
+  { markdown: 'elite: true', becomes: 'Elite enemy', note: 'Bigger, tougher, marked with an aura.' },
   { markdown: '```boss', becomes: 'Boss fight', note: 'type, name, health, damage.' },
-  { markdown: '```door', becomes: 'Locked door', note: 'label, target, requires.' },
+  { markdown: '```door', becomes: 'Locked door', note: 'label, target, requires, hidden.' },
+  { markdown: 'hidden: true', becomes: 'Secret door', note: 'Dressed down; find it by walking near.' },
 ];
 
 const EXAMPLE = `# The Developer Dungeon
 
-## The Repository
+## Firewall Gate
 
-A forgotten project waits in the dark.
+\`\`\`room
+theme: firewall
+\`\`\`
 
-- Sword
-- Coffee Potion
+The last security layer is still running.
 
-> The last commit was 1,827 days ago.
-
-- [ ] Find the Git Key
-
-[Descend into Bug Basement](#bug-basement)
-
-## Bug Basement
+- Firewall Vest
+- Patch Kit
 
 \`\`\`enemy
-type: bug
+type: dependency
 count: 4
-health: 25
-damage: 1
+health: 60
 \`\`\`
 
-- Git Key
+\`\`\`enemy
+type: null-pointer
+count: 1
+health: 120
+damage: 2
+elite: true
+\`\`\`
+
+- [ ] Survive the Firewall Gate
 
 \`\`\`door
-label: Unlock the Vault
-target: legacy-vault
-requires: Git Key
+label: Pry open the loose panel
+target: root-cellar
+hidden: true
 \`\`\`
 
-## Legacy Vault
+[Enter Memory Leak](#memory-leak)`;
 
-\`\`\`boss
-type: legacy-code
-name: LEGACY CODE
-health: 250
-damage: 2
-\`\`\``;
+const WEAPONS = [
+  'Debugger - the baseline: fast and reliable',
+  'Refactor Blade - stronger, slightly faster, a little longer',
+  'Stack Trace Spear - long reach, narrow arc, slower',
+  'Dependency Hammer - heavy damage, huge knockback, slow',
+  'Merge Axe - very strong with a wide arc',
+  'Root Access - the secret one',
+];
 
-const ITEMS = [
-  'Sword / Debugger — better melee damage',
-  'Health Potion / Coffee Potion — restores hearts',
-  'Git Key / Silver Key — opens `requires:` doors',
-  'Gold — counter in the HUD',
-  'Stack Overflow Scroll — temporary damage boost',
-  'Rubber Duck — collectible',
-  'Anything else — a generic collectible',
+const ARMOR = [
+  'Cache Jacket - 1 armor',
+  'Firewall Vest - 2 armor',
+  'Kernel Plate - 3 armor',
+  'Root Armor - 5 armor (secret)',
+];
+
+const RECOVERY = [
+  'Coffee Potion - +2 hearts',
+  'Health Potion - +3 hearts',
+  'Energy Drink - +1 heart and a short speed boost',
+  'Patch Kit - +2 armor, up to your armor capacity',
+  'Full Restore - refills hearts and armor',
+  'Heart Upgrade - +1 maximum heart for the rest of the run',
+];
+
+const SPECIAL = [
+  'Rubber Duck - permanently faster attacks',
+  'Stack Overflow Scroll - your next connecting hit does triple damage',
+  'Hotfix - survives one death with 2 hearts',
+  'Commit Shield - blocks one incoming hit completely',
+  'sudo - more damage and one extra point of armor capacity',
+  'Git Key / Silver Key - opens doors with `requires:`',
+  'Gold - counts towards your final score',
 ];
 
 const ENEMY_TYPES = ['bug', 'skeleton', 'slime', 'dependency', 'null-pointer'];
 const BOSS_TYPES = ['legacy-code', 'forgotten-king'];
+const THEMES = [
+  'repository', 'basement', 'cache', 'null', 'dependency', 'graveyard', 'merge',
+  'ci', 'firewall', 'memory', 'deprecated', 'refactor', 'archive', 'vault', 'secret',
+];
 
 function section(title: string, build: (host: HTMLElement) => void): HTMLElement {
   const host = document.createElement('section');
@@ -168,15 +198,22 @@ export class HelpModal {
       enemies.textContent = `enemy type: ${ENEMY_TYPES.join(', ')} (anything else becomes a generic creature)`;
       const bosses = document.createElement('p');
       bosses.textContent = `boss type: ${BOSS_TYPES.join(', ')}`;
+      const themes = document.createElement('p');
+      themes.textContent = `room theme: ${THEMES.join(', ')}`;
       const numbers = document.createElement('p');
       numbers.textContent =
-        'count 1–12 · enemy health 1–999 · boss health 10–9999 · damage 0–5. Missing fields fall back to sensible defaults.';
-      host.append(enemies, bosses, numbers);
+        'count 1–12 · enemy health 1–999 · boss health 10–9999 · damage 0–5. elite and hidden accept true/false. Missing fields fall back to sensible defaults.';
+      host.append(enemies, bosses, themes, numbers);
     });
 
-    const items = section('Items the game understands', (host) => {
-      host.append(list(ITEMS));
+    const items = section('Weapons', (host) => host.append(list(WEAPONS)));
+    const armor = section('Armor', (host) => {
+      const intro = document.createElement('p');
+      intro.textContent = 'Armor absorbs damage before your hearts do. One armor slot.';
+      host.append(intro, list(ARMOR));
     });
+    const recovery = section('Recovery', (host) => host.append(list(RECOVERY)));
+    const special = section('Special items', (host) => host.append(list(SPECIAL)));
 
     const controls = section('Controls', (host) => {
       host.append(
@@ -189,6 +226,16 @@ export class HelpModal {
       );
     });
 
-    this.body.replaceChildren(intro, table, example, values, items, controls);
+    this.body.replaceChildren(
+      intro,
+      table,
+      example,
+      values,
+      items,
+      armor,
+      recovery,
+      special,
+      controls,
+    );
   }
 }

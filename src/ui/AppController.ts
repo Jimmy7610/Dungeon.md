@@ -1,4 +1,5 @@
 import { DEVELOPER_DUNGEON } from '../demo/developerDungeon.ts';
+import type { RuntimeEvents } from '../game/events.ts';
 import { GameRuntime } from '../game/GameRuntime.ts';
 import { parseMarkdown } from '../markdown/parser.ts';
 import { roomEnemyCount, type GameDefinition, type ParseWarning } from '../markdown/types.ts';
@@ -29,6 +30,10 @@ export class AppController {
   private readonly editor: EditorController;
 
   private readonly emptyState = element('empty-state');
+  private readonly equipCard = element('equip-card');
+  private readonly equipName = element('equip-name');
+  private readonly equipStats = element<HTMLUListElement>('equip-stats');
+  private readonly equipCurrent = element('equip-current');
   private readonly dialogOverlay = element('dialog-overlay');
   private readonly dialogBody = element('dialog-body');
   private readonly deathOverlay = element('death-overlay');
@@ -75,6 +80,8 @@ export class AppController {
       if (isEmpty) this.hud.clearTransient();
     });
     bus.on('dialog', ({ lines }) => this.showDialog(lines));
+    bus.on('equip', (payload) => this.renderEquipCard(payload));
+    bus.on('hud', (snapshot) => this.editor.setActiveRoom(snapshot.roomTitle));
     bus.on('death', ({ roomTitle }) => {
       this.deathTitle.textContent = roomTitle ? `You died in ${roomTitle}` : 'You died';
       this.deathOverlay.hidden = false;
@@ -200,6 +207,27 @@ export class AppController {
       item.textContent = warning.room ? `${warning.room}: ${warning.message}` : warning.message;
       this.warningsList.append(item);
     }
+  }
+
+  private renderEquipCard(payload: RuntimeEvents['equip']): void {
+    if (!payload) {
+      this.equipCard.hidden = true;
+      return;
+    }
+    this.equipCard.hidden = false;
+    this.equipName.textContent = payload.name;
+    this.equipStats.replaceChildren();
+    for (const stat of payload.stats) {
+      const row = document.createElement('li');
+      const label = document.createElement('span');
+      label.textContent = stat.label;
+      const value = document.createElement('span');
+      value.className = `value ${stat.direction}`;
+      value.textContent = stat.value;
+      row.append(label, value);
+      this.equipStats.append(row);
+    }
+    this.equipCurrent.textContent = payload.current;
   }
 
   private showDialog(lines: string[]): void {
