@@ -29,6 +29,7 @@ export class GameRuntime implements SceneContext {
   private booted = false;
   private dungeonScene: DungeonScene | undefined;
   private paused = false;
+  private readonly wastedNotices = new Map<string, number>();
 
   constructor(private readonly parent: HTMLElement) {
     this.reducedMotion =
@@ -187,21 +188,34 @@ export class GameRuntime implements SceneContext {
       questsTotal: quests.length,
       gold: this.state.gold,
       keys: this.state.keys.size,
+      roomsVisited: this.state.visitedRooms.size,
+      roomsTotal: this.definition.rooms.length,
+      weapon: this.state.weapon.name,
+      armor: this.state.armorSpec?.name ?? 'None',
     });
   }
 
   publishHud(): void {
     const room = findRoom(this.definition, this.state.currentRoom);
-    this.bus.emit(
-      'hud',
-      this.state.snapshot(this.definition, room?.title ?? '', this.game?.getTime() ?? 0),
-    );
+    this.bus.emit('hud', this.state.snapshot(this.definition, room?.title ?? ''));
   }
 
   openDialog(lines: string[]): void {
     if (lines.length === 0) return;
     this.pause();
     this.bus.emit('dialog', { lines });
+  }
+
+  /**
+   * Standing on an item that would be wasted should say so once, not once per
+   * physics frame.
+   */
+  notifyWasted(itemId: string, message: string): void {
+    const now = Date.now();
+    const last = this.wastedNotices.get(itemId) ?? 0;
+    if (now - last < 2500) return;
+    this.wastedNotices.set(itemId, now);
+    this.bus.emit('toast', { text: message, kind: 'warn' });
   }
 
   /* ---------------------------------------------------------------- control */

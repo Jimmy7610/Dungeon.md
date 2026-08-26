@@ -38,22 +38,23 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     return now >= this.nextAttackAt;
   }
 
-  registerAttack(now: number): void {
-    this.nextAttackAt = now + PLAYER.attackCooldownMs;
+  /** Cooldown comes from the equipped weapon, so it is passed in. */
+  registerAttack(now: number, cooldownMs: number): void {
+    this.nextAttackAt = now + cooldownMs;
   }
 
   grantInvulnerability(now: number): void {
     this.invulnerableUntil = now + PLAYER.invulnerableMs;
   }
 
-  drive(input: InputState, delta: number): void {
+  drive(input: InputState, delta: number, speed: number = PLAYER.speed): void {
     const body = this.body as Phaser.Physics.Arcade.Body | null;
     if (!body) return;
     const vector = new Phaser.Math.Vector2(input.x, input.y);
     if (vector.lengthSq() > 0) {
       vector.normalize();
       this.facing.set(vector.x, vector.y);
-      body.setVelocity(vector.x * PLAYER.speed, vector.y * PLAYER.speed);
+      body.setVelocity(vector.x * speed, vector.y * speed);
       this.setFlipX(vector.x < -0.2 ? true : vector.x > 0.2 ? false : this.flipX);
       this.walkTimer += delta;
       if (this.walkTimer > 130) {

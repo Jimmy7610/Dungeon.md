@@ -62,11 +62,18 @@ export class QuestSystem {
   private satisfiedByState(quest: QuestDefinition): boolean {
     const trigger = quest.trigger;
     switch (trigger.kind) {
-      case 'item':
-        return (
-          this.state.keys.has(trigger.item) ||
-          [...this.state.trinkets].some((name) => name.toLowerCase() === trigger.item)
-        );
+      case 'item': {
+        if (this.state.keys.has(trigger.item)) return true;
+        // Any collected item whose name matches also satisfies the quest.
+        for (const room of this.game.rooms) {
+          for (const item of room.items) {
+            if (item.name.toLowerCase() === trigger.item && this.state.collectedItems.has(item.id)) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
       case 'boss':
         return this.state.defeatedBosses.has(trigger.boss);
       case 'room':
