@@ -4,8 +4,10 @@ import {
   parseBossDirective,
   parseDoorDirective,
   parseEnemyDirective,
+  parseRoomDirective,
   type WarnFn,
 } from './directives.ts';
+import { DEFAULT_THEME } from './themes.ts';
 import { sanitizeInline, sanitizeText } from './sanitize.ts';
 import { anchorToId, createSlugger, slugify } from './slug.ts';
 import {
@@ -43,6 +45,7 @@ function emptyRoom(id: string, title: string): RoomDefinition {
   return {
     id,
     title,
+    theme: DEFAULT_THEME,
     narration: [],
     items: [],
     quests: [],
@@ -171,6 +174,7 @@ export function parseMarkdown(source: string): GameDefinition {
       }));
       room.doors = current.doors.map((door, index) => ({ ...door, id: `${room.id}:door:${index}` }));
       if (current.boss) room.boss = { ...current.boss, id: `${room.id}:boss` };
+      if (current.theme !== DEFAULT_THEME) room.theme = current.theme;
       currentIsPrologue = false;
     }
 
@@ -194,6 +198,7 @@ export function parseMarkdown(source: string): GameDefinition {
         id: `${current.id}:door:${counters.door++}`,
         label,
         target: anchorToId(link.href),
+        hidden: false,
         broken: false,
       });
     }
@@ -304,6 +309,8 @@ export function parseMarkdown(source: string): GameDefinition {
             break;
           }
           current.boss = parseBossDirective(body, `${current.id}:boss`, current.title, warn);
+        } else if (lang === 'room') {
+          current.theme = parseRoomDirective(body, current.title, warn).theme;
         } else if (lang === 'door') {
           if (roomObjectCount(current) >= MAX_OBJECTS_PER_ROOM) break;
           const door = parseDoorDirective(

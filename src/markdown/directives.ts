@@ -1,5 +1,7 @@
+import { classifyItem } from './items.ts';
 import { sanitizeInline } from './sanitize.ts';
 import { anchorToId } from './slug.ts';
+import { DEFAULT_THEME, isRoomTheme, type RoomTheme } from './themes.ts';
 import {
   BOSS_TYPES,
   ENEMY_TYPES,
@@ -9,7 +11,6 @@ import {
   type EnemyDefinition,
   type EnemyType,
   type ItemDefinition,
-  type ItemKind,
   type ParseWarning,
 } from './types.ts';
 
@@ -49,6 +50,19 @@ export function parseKeyValues(source: string): Record<string, string> {
   return result;
 }
 
+/**
+ * Tolerant boolean parsing for directive flags. Anything unrecognised falls
+ * back to `false` rather than throwing, matching the rest of the parser.
+ */
+export function parseBoolean(value: string | undefined, fallback = false): boolean {
+  if (value === undefined) return fallback;
+  const normalised = value.trim().toLowerCase();
+  if (normalised === '') return fallback;
+  if (['true', 'yes', 'on', '1'].includes(normalised)) return true;
+  if (['false', 'no', 'off', '0'].includes(normalised)) return false;
+  return fallback;
+}
+
 function clampInt(
   value: string | undefined,
   fallback: number,
@@ -84,7 +98,30 @@ export function parseEnemyDirective(
     count: clampInt(fields['count'], ENEMY_DEFAULTS.count, LIMITS.enemyCount),
     health: clampInt(fields['health'], ENEMY_DEFAULTS.health, LIMITS.enemyHealth),
     damage: clampInt(fields['damage'], ENEMY_DEFAULTS.damage, LIMITS.enemyDamage),
+    elite: parseBoolean(fields['elite']),
+    healthExplicit: fields['health'] !== undefined && Number.isFinite(Number.parseInt(fields['health'], 10)),
   };
+}
+
+/**
+ * `room` directives attach metadata to the H2 they appear under. Only `theme`
+ * is supported today; unknown themes warn and fall back to the default.
+ */
+export function parseRoomDirective(
+  source: string,
+  room: string,
+  warn: WarnFn,
+): { theme: RoomTheme } {
+  const fields = parseKeyValues(source);
+  const raw = (fields['theme'] ?? '').trim().toLowerCase();
+  if (!raw) return { theme: DEFAULT_THEME };
+  if (isRoomTheme(raw)) return { theme: raw };
+  warn({
+    level: 'warn',
+    room,
+    message: `Unknown room theme "${sanitizeInline(raw, 40)}" - using "${DEFAULT_THEME}".`,
+  });
+  return { theme: DEFAULT_THEME };
 }
 
 function titleCase(value: string): string {
@@ -147,43 +184,20 @@ export function parseDoorDirective(
   }
   const requires = sanitizeInline(fields['requires'] ?? '', 40);
   const label = sanitizeInline(fields['label'] ?? '', 60) || `Enter ${titleCase(target)}`;
-  const door: DoorDefinition = { id, label, target, broken: false };
+  const door: DoorDefinition = {
+    id,
+    label,
+    target,
+    hidden: parseBoolean(fields['hidden']),
+    broken: false,
+  };
   if (requires) door.requires = requires;
   return door;
-}
-
-interface ItemProfile {
-  kind: ItemKind;
-  power: number;
-}
-
-/** Canonical demo items get hand-tuned behaviour; everything else is inferred. */
-const ITEM_CATALOGUE: Record<string, ItemProfile> = {
-  debugger: { kind: 'weapon', power: 2 },
-  sword: { kind: 'weapon', power: 1 },
-  'coffee potion': { kind: 'heal', power: 2 },
-  'health potion': { kind: 'heal', power: 2 },
-  'git key': { kind: 'key', power: 0 },
-  'silver key': { kind: 'key', power: 0 },
-  'rubber duck': { kind: 'trinket', power: 0 },
-  'stack overflow scroll': { kind: 'trinket', power: 1 },
-  gold: { kind: 'gold', power: 10 },
-};
-
-function inferItemProfile(name: string): ItemProfile {
-  const key = name.toLowerCase();
-  const exact = ITEM_CATALOGUE[key];
-  if (exact) return exact;
-  if (/\bkey\b|keycard|token/.test(key)) return { kind: 'key', power: 0 };
-  if (/potion|coffee|elixir|heal|medkit|bandage/.test(key)) return { kind: 'heal', power: 2 };
-  if (/sword|blade|axe|hammer|debugger|linter|dagger/.test(key)) return { kind: 'weapon', power: 1 };
-  if (/gold|coin|gem|treasure|credit/.test(key)) return { kind: 'gold', power: 10 };
-  return { kind: 'trinket', power: 0 };
 }
 
 export function createItem(rawName: string, id: string): ItemDefinition | null {
   const name = sanitizeInline(rawName, 40);
   if (!name) return null;
-  const profile = inferItemProfile(name);
-  return { id, name, kind: profile.kind, power: profile.power };
+  const spec = classifyItem(name);
+  return { id, name, specId: spec.id, category: spec.category };
 }

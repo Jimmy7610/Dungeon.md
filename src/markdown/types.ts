@@ -1,3 +1,6 @@
+import type { ItemCategory } from './items.ts';
+import { DEFAULT_THEME, type RoomTheme } from './themes.ts';
+
 /**
  * The intermediate representation that sits between Markdown and the game.
  *
@@ -20,16 +23,14 @@ export type EnemyType = (typeof ENEMY_TYPES)[number];
 export const BOSS_TYPES = ['legacy-code', 'forgotten-king'] as const;
 export type BossType = (typeof BOSS_TYPES)[number];
 
-/** How a collected item behaves at runtime. */
-export type ItemKind = 'weapon' | 'heal' | 'key' | 'gold' | 'trinket';
-
 export interface ItemDefinition {
   /** Stable per-room id, e.g. `bug-basement:item:0`. */
   id: string;
+  /** The name as written in the Markdown. */
   name: string;
-  kind: ItemKind;
-  /** Hearts restored by `heal` items, weapon tier for `weapon` items, else 0. */
-  power: number;
+  /** Registry entry describing what this item does (see `items.ts`). */
+  specId: string;
+  category: ItemCategory;
 }
 
 export type QuestTrigger =
@@ -60,6 +61,10 @@ export interface EnemyDefinition {
   count: number;
   health: number;
   damage: number;
+  /** Elites are bigger, tougher and visually marked. */
+  elite: boolean;
+  /** True when the directive set `health:` explicitly, so elite scaling skips it. */
+  healthExplicit: boolean;
 }
 
 export interface BossDefinition {
@@ -77,6 +82,8 @@ export interface DoorDefinition {
   target: string;
   /** Item name required to pass, if any. */
   requires?: string;
+  /** Secret doors are dressed down so they have to be looked for. */
+  hidden: boolean;
   /** True when `target` matches no room; the runtime shows a broken-door prompt. */
   broken: boolean;
 }
@@ -84,6 +91,7 @@ export interface DoorDefinition {
 export interface RoomDefinition {
   id: string;
   title: string;
+  theme: RoomTheme;
   narration: string[];
   items: ItemDefinition[];
   quests: QuestDefinition[];
@@ -113,6 +121,9 @@ export const DEFAULT_TITLE = 'Untitled Dungeon';
 export function emptyGame(title = DEFAULT_TITLE): GameDefinition {
   return { title, rooms: [], warnings: [] };
 }
+
+export { DEFAULT_THEME };
+export type { RoomTheme, ItemCategory };
 
 export function findRoom(
   game: GameDefinition,
