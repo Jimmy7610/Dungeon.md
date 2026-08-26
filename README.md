@@ -112,6 +112,8 @@ tables, raw HTML — is ignored by the game.
 - **Locked doors.** A `door` directive with `requires:` stays shut until you carry that item.
 - **Deterministic rooms.** The room id is hashed to pick one of six hand-authored layouts and to
   seed object placement and decoration, so the same Markdown always produces the same dungeon.
+- **Code-generated pixel art.** Every sprite, tile and effect is drawn from data in
+  `src/game/art/` at boot. No image files and no asset packs - the art is as forkable as the code.
 - **15 room themes.** A `room` directive repaints the floor, walls, ambient glow and decoration
   without touching collision, physics or doors.
 - **Load your own `.md`.** File picker or drag-and-drop. Nothing is uploaded; there is no server.
@@ -423,8 +425,15 @@ src/
     items/weapons.ts          weapon registry (damage/speed/reach/arc)
     GameRuntime.ts            owns Phaser, state, quests, room transitions
     art/
-      pixels.ts               hand-drawn pixel art as text
-      textures.ts             art -> generated textures, vignette
+      palettes.ts             shared colour ramps
+      player.ts               player frames + armour overlays
+      enemies.ts              enemy sprites and animation frames
+      items.ts                weapon, armour, recovery and special sprites
+      bosses.ts               LEGACY CODE, generated from a fixed seed
+      effects.ts              shadows, particles, projectiles, vignette
+      registry.ts             every sprite, as plain testable data
+      textures.ts             registry -> generated GPU textures
+      art.test.ts             sprite/texture/theme coverage suite
     entities/                 Player, Enemy, Boss, Pickup, doors, NPCs
     generation/
       roomTemplates.ts        six hand-authored room shapes
@@ -547,4 +556,7 @@ quest-trigger inference.
 
 Built with [Vite](https://vite.dev), [TypeScript](https://www.typescriptlang.org),
 [Phaser 3](https://phaser.io) and [marked](https://marked.js.org). All art is generated at runtime
-from pixel data in this repository — no external assets, no hotlinked images.
+from pixel data in this repository — no external assets, no hotlinked images, nothing downloaded.
+Sprites live in `src/game/art/` as text grids (one character per pixel, indexing a palette) and
+become textures when the game boots, so the whole look of the game is open-source and editable in a
+text editor.
