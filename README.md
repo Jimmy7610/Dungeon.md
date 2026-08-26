@@ -386,8 +386,8 @@ No server functions required.
 **GitHub Pages** — already wired up. [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
 runs on every push to `main` (and on demand via *Actions → Deploy to GitHub Pages → Run workflow*):
 it installs with `npm ci`, runs the tests and the typecheck, builds, and publishes `dist/` with the
-official Pages actions. The first run enables Pages itself, so no repository setting has to be
-flipped by hand.
+official Pages actions. The repository's Pages source is set to **GitHub Actions**; a fork needs that
+set once under *Settings → Pages* before its first deployment.
 
 Vite's `base` is `./`, so the emitted asset URLs are relative and a project page served from
 `/Dungeon.md/` resolves them correctly — no environment-specific build, and `npm run dev` and

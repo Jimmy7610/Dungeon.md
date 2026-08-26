@@ -12,9 +12,9 @@ permissions:
   pages: write
   id-token: write
 
-# One deployment at a time. Runs queued behind an in-progress one are skipped
-# in favour of the newest, but an in-progress deployment is allowed to finish -
-# cancelling one mid-flight can leave the live site half-published.
+# One deployment at a time. Runs queued behind an in-progress one are superseded
+# by the newest, but an in-progress deployment is allowed to finish - cancelling
+# one mid-flight can leave the live site half-published.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -25,10 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -42,19 +42,18 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # `npm run build` also typechecks; the step above just fails faster and
+      # `npm run build` typechecks again; the step above just fails faster and
       # reports the two concerns separately.
       - name: Build
         run: npm run build
 
+      # Pages is configured with the "GitHub Actions" source. This step only
+      # reads that configuration - it does not need to create the site.
       - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          # Turn Pages on automatically the first time this workflow runs.
-          enablement: true
+        uses: actions/configure-pages@v6
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -68,4 +67,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
