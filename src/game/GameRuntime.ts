@@ -30,6 +30,7 @@ export class GameRuntime implements SceneContext {
   private dungeonScene: DungeonScene | undefined;
   private paused = false;
   private readonly wastedNotices = new Map<string, number>();
+  private aimPoint: { x: number; y: number } | null = null;
 
   constructor(private readonly parent: HTMLElement) {
     this.reducedMotion =
@@ -204,6 +205,14 @@ export class GameRuntime implements SceneContext {
     if (lines.length === 0) return;
     this.pause();
     this.bus.emit('dialog', { lines });
+  }
+
+  getAimPoint(): { x: number; y: number } | null {
+    return this.aimPoint;
+  }
+
+  setAimPoint(x: number, y: number): void {
+    this.aimPoint = { x, y };
   }
 
   /**

@@ -681,9 +681,28 @@ export class DungeonScene extends Phaser.Scene {
         Phaser.Input.Keyboard.KeyCodes.RIGHT,
       ]);
     }
-    this.input.on(Phaser.Input.Events.POINTER_DOWN, () => {
+    // Mouse aim. POINTER_MOVE keeps the aim point fresh; POINTER_DOWN updates
+    // it *before* flagging the attack, so a fast move-then-click never swings
+    // at a stale target. Both are registered on the scene's input plugin, which
+    // Phaser tears down on shutdown - so a room change or live rebuild cannot
+    // leave a second listener behind and double-fire attacks.
+    this.input.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
+      this.rememberAim(pointer);
+    });
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+      this.rememberAim(pointer);
       this.pointerAttack = true;
     });
+  }
+
+  /**
+   * Convert a pointer to world coordinates through the camera, so the canvas's
+   * responsive CSS scaling and any camera transform are accounted for - screen
+   * pixels are never assumed to equal world units.
+   */
+  private rememberAim(pointer: Phaser.Input.Pointer): void {
+    const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    this.context.setAimPoint(world.x, world.y);
   }
 
   private wireCollisions(): void {
@@ -730,6 +749,12 @@ export class DungeonScene extends Phaser.Scene {
 
     const input = this.readInput();
     this.player.drive(input, delta, this.context.state.moveSpeed(time));
+
+    // Re-aim from the current pointer position every frame: the mouse can sit
+    // still while the player walks, and the direction between them still
+    // changes. Applied before the attack check so a click uses this frame's aim.
+    const aim = this.context.getAimPoint();
+    if (aim) this.player.aimAt(aim.x, aim.y);
 
     for (const enemy of this.enemies) {
       if (!enemy.active) continue;

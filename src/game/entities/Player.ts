@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ARMOR_TEXTURES, IDLE_CYCLE, WALK_CYCLE } from '../art/player.ts';
 import { PLAYER } from '../config.ts';
+import { aimDirection } from '../systems/CombatSystem.ts';
 
 export interface InputState {
   x: number;
@@ -12,14 +13,21 @@ const WALK_FRAME_MS = 110;
 const IDLE_FRAME_MS = 620;
 
 /**
- * The little cyan developer: movement, facing, i-frames and attack timing.
+ * The little cyan developer: movement, aim, i-frames and attack timing.
  *
- * The sprite grew from 12px to 16px of source art, but the physics body is
- * still sized from `PLAYER.bodyWidth/bodyHeight` in *display* pixels, so the
- * collision box is exactly what it was before the art pass.
+ * Movement and aim are deliberately independent. WASD only ever sets velocity;
+ * `facing` - which drives the attack arc, the swing art and the sprite flip -
+ * comes from the mouse. Until the pointer has been used, `facing` falls back to
+ * the last movement direction so keyboard-only play still works.
+ *
+ * The physics body is sized from `PLAYER.bodyWidth/bodyHeight` in *display*
+ * pixels, so none of this changes the collision box.
  */
 export class Player extends Phaser.Physics.Arcade.Sprite {
+  /** Aim direction: what the player attacks and looks toward. */
   readonly facing = new Phaser.Math.Vector2(1, 0);
+  /** True once the pointer has given a real aim; movement stops steering then. */
+  private aimFromPointer = false;
   private nextAttackAt = 0;
   private invulnerableUntil = 0;
   private frameTimer = 0;
@@ -78,6 +86,29 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.invulnerableUntil = now + PLAYER.invulnerableMs;
   }
 
+  /**
+   * Point the player at a world position. Called every frame from the scene
+   * with the latest pointer position, so the direction stays correct as the
+   * player moves underneath a stationary mouse.
+   */
+  aimAt(worldX: number, worldY: number): void {
+    const direction = aimDirection({ x: this.x, y: this.y }, { x: worldX, y: worldY }, this.facing);
+    this.facing.set(direction.x, direction.y);
+    this.aimFromPointer = true;
+    this.applyFacingFlip();
+  }
+
+  /** True once the mouse has taken over aiming. */
+  get isAiming(): boolean {
+    return this.aimFromPointer;
+  }
+
+  /** Face left or right based on aim, with a deadzone so vertical aim is stable. */
+  private applyFacingFlip(): void {
+    if (this.facing.x < -0.15) this.setFlipX(true);
+    else if (this.facing.x > 0.15) this.setFlipX(false);
+  }
+
   /** Show the equipped armour tier on the character. */
   setArmor(specId: string | null): void {
     const texture = specId ? ARMOR_TEXTURES[specId] : undefined;
@@ -99,9 +130,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     if (moving) {
       vector.normalize();
-      this.facing.set(vector.x, vector.y);
       body.setVelocity(vector.x * speed, vector.y * speed);
-      this.setFlipX(vector.x < -0.2 ? true : vector.x > 0.2 ? false : this.flipX);
+      // Movement only steers the character before the mouse has ever aimed;
+      // once it has, walking never overrides where the player is pointing.
+      if (!this.aimFromPointer) {
+        this.facing.set(vector.x, vector.y);
+        this.applyFacingFlip();
+      }
     } else {
       body.setVelocity(0, 0);
     }

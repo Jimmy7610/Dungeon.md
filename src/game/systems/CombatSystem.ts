@@ -51,3 +51,36 @@ export function knockbackVelocity(from: Vec2, to: Vec2, force: number): Vec2 {
   const angle = Math.atan2(to.y - from.y, to.x - from.x);
   return { x: Math.cos(angle) * force, y: Math.sin(angle) * force };
 }
+
+/**
+ * Pointer positions within this many pixels of the player are treated as "no
+ * direction" - normalising them would produce a zero vector or NaN.
+ */
+const MIN_AIM_DISTANCE_SQ = 4;
+
+/**
+ * Direction from the player to the aim point, as a unit vector.
+ *
+ * Deliberately derived from positions only - never from velocity - so movement
+ * and aim stay independent: the player can walk left while aiming right.
+ * Degenerate input (pointer on top of the player, NaN) keeps the previous valid
+ * aim instead of feeding a zero vector into the combat geometry.
+ */
+export function aimDirection(from: Vec2, to: Vec2, fallback: Vec2): Vec2 {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const lengthSq = dx * dx + dy * dy;
+  if (!Number.isFinite(lengthSq) || lengthSq < MIN_AIM_DISTANCE_SQ) {
+    return safeFallback(fallback);
+  }
+  const length = Math.sqrt(lengthSq);
+  return { x: dx / length, y: dy / length };
+}
+
+/** Never hand back a zero-length or non-finite direction. */
+function safeFallback(fallback: Vec2): Vec2 {
+  const lengthSq = fallback.x * fallback.x + fallback.y * fallback.y;
+  if (!Number.isFinite(lengthSq) || lengthSq < 1e-6) return { x: 1, y: 0 };
+  const length = Math.sqrt(lengthSq);
+  return { x: fallback.x / length, y: fallback.y / length };
+}

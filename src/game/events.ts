@@ -85,6 +85,13 @@ export interface SceneContext {
   notifyVictory(bossName: string): void;
   publishHud(): void;
   openDialog(lines: string[]): void;
+  /**
+   * Last pointer position in world coordinates, or null if the mouse has not
+   * been used yet. Held by the runtime so aim survives a room transition,
+   * which restarts the scene.
+   */
+  getAimPoint(): { x: number; y: number } | null;
+  setAimPoint(x: number, y: number): void;
   /** An item that would have been wasted was left on the floor. */
   notifyWasted(itemId: string, message: string): void;
 }
