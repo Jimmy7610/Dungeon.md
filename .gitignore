@@ -16,3 +16,6 @@ Thumbs.db
 
 # Claude Code local tooling
 .claude/
+
+# Competition capture output (generated locally)
+competition/
