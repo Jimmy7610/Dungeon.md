@@ -6,13 +6,26 @@ _Your README is now a dungeon._
 [![Deploy to GitHub Pages](https://github.com/Jimmy7610/Dungeon.md/actions/workflows/deploy.yml/badge.svg)](https://github.com/Jimmy7610/Dungeon.md/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-63e0ff.svg)](LICENSE)
 
-**▶ [Play it in your browser](https://jimmy7610.github.io/Dungeon.md/)**
+**▶ [Play Dungeon.md in your browser](https://jimmy7610.github.io/Dungeon.md/)**
 
-Dungeon.md turns ordinary Markdown into a playable top-down dungeon game. Headings become rooms,
-lists become loot, checkboxes become quests, links become doors, and fenced directives spawn enemies
-and bosses. You type on the left; the dungeon rebuilds itself on the right, live.
+> **What if your README was the game?**
+>
+> **Dungeon.md turns ordinary Markdown into a playable action game — live.**
+>
+> Write on the left. Play on the right.
+>
+> `## Heading` → Room  
+> `- Item` → Loot  
+> `- [ ] Quest` → Quest  
+> `[Door](#room)` → Door  
+> fenced `enemy` → Enemy  
+> fenced `boss` → Boss
+>
+> Change the Markdown and the dungeon rebuilds instantly.
 
-The Markdown is not documentation *for* the game. **The Markdown is the game.**
+**The Markdown isn't documentation for the game. The Markdown is the game.**
+
+**17 rooms · 64 enemies · 51 items · 6 weapons · 3 secret rooms · 1 final boss**
 
 ````md
 ## Bug Basement
@@ -140,12 +153,17 @@ start typing.
 
 ## Controls
 
-| Key                    | Action                                     |
-| ---------------------- | ------------------------------------------ |
-| `W` `A` `S` `D` / arrows | Move                                     |
-| `Space` / left mouse   | Attack                                     |
-| `E`                    | Interact with a door or a message stone    |
-| `Esc`                  | Close a dialog, the syntax guide, or leave play mode |
+| Input                    | Action                                               |
+| ------------------------ | ---------------------------------------------------- |
+| `W` `A` `S` `D` / arrows | Move                                                 |
+| Mouse                    | Aim, full 360°                                       |
+| Left mouse / `Space`     | Attack toward the aim                                |
+| `E`                      | Interact with a door or a message stone              |
+| `Esc`                    | Close a dialog, the syntax guide, or leave play mode |
+
+Movement and aim are independent. The keys only move you and the mouse only points you, so you can
+back away from an elite while still swinging at it. Until you touch the mouse, aim falls back to the
+direction you are walking, and keyboard-only play works as it always did.
 
 The editor keeps the keyboard while it is focused; click the game (or press **▶ Play**) to hand the
 controls back.
