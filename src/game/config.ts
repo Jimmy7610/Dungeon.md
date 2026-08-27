@@ -27,7 +27,9 @@ export const PLAYER = {
   speed: 190,
   bodyWidth: 16,
   bodyHeight: 14,
-  scale: 2.5,
+  /* Visual scale only. The physics body is sized in display pixels from
+     bodyWidth/bodyHeight below, so changing this never moves collision. */
+  scale: 2.7,
   invulnerableMs: 1050,
   /** Baseline swing. Weapon profiles multiply these three. */
   baseDamage: 18,
