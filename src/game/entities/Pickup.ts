@@ -49,32 +49,36 @@ export class Pickup extends Phaser.Physics.Arcade.Sprite {
     body?.setImmovable(true);
 
     const legendary = LEGENDARY.has(this.spec.id);
+    const equipment = this.requiresInteract;
     const accent = legendary ? 0xd6b3ff : (CATEGORY_ACCENT[this.spec.category] ?? 0x9aa4b8);
 
-    // A contact shadow stops loot from floating, and a pooled glow makes it
-    // findable across a busy floor.
+    // A contact shadow stops loot from floating. Equipment gets a brighter
+    // ground pool so "that glowing thing is loot" reads instantly, without
+    // turning the floor neon.
     const shadow = scene.add
       .image(x, y + 12, 'shadow')
       .setDepth(10)
-      .setDisplaySize(20, 8)
+      .setDisplaySize(22, 9)
       .setAlpha(0.55);
+    const glowWidth = legendary ? 42 : equipment ? 36 : 30;
+    const glowAlpha = legendary ? 0.34 : equipment ? 0.28 : 0.2;
     const glow = scene.add
-      .ellipse(x, y + 10, legendary ? 40 : 30, legendary ? 16 : 12, accent, legendary ? 0.3 : 0.2)
+      .ellipse(x, y + 10, glowWidth, glowWidth * 0.4, accent, glowAlpha)
       .setDepth(11);
     this.extras.push(shadow, glow);
 
-    if (this.requiresInteract || legendary) {
+    if (equipment || legendary) {
       const ring = scene.add
-        .ellipse(x, y, legendary ? 46 : 40, legendary ? 46 : 40, accent, 0)
-        .setStrokeStyle(1, accent, legendary ? 0.75 : 0.5)
+        .ellipse(x, y, legendary ? 46 : 42, legendary ? 46 : 42, accent, 0)
+        .setStrokeStyle(legendary ? 2 : 1.5, accent, legendary ? 0.8 : 0.6)
         .setDepth(11);
       this.extras.push(ring);
       if (!reducedMotion) {
         scene.tweens.add({
           targets: ring,
-          scale: { from: 0.78, to: 1.18 },
-          alpha: { from: 0.85, to: 0.1 },
-          duration: legendary ? 1200 : 1500,
+          scale: { from: 0.74, to: 1.2 },
+          alpha: { from: 0.95, to: 0.08 },
+          duration: legendary ? 1200 : 1400,
           yoyo: true,
           repeat: -1,
           ease: 'Sine.easeInOut',
@@ -82,20 +86,24 @@ export class Pickup extends Phaser.Physics.Arcade.Sprite {
       }
     }
 
-    if (legendary && !reducedMotion) {
-      // Three slow sparks orbiting the rarest loot in the campaign.
-      for (let index = 0; index < 3; index++) {
-        const spark = scene.add.rectangle(x, y, 3, 3, 0xffffff, 0.9).setDepth(13);
+    if ((equipment || legendary) && !reducedMotion) {
+      // Two slow sparks for equipment, three for the legendary loot. Restrained
+      // on purpose: enough to catch the eye, not a particle fountain.
+      const sparks = legendary ? 3 : 2;
+      for (let index = 0; index < sparks; index++) {
+        const spark = scene.add
+          .rectangle(x, y, legendary ? 3 : 2, legendary ? 3 : 2, 0xffffff, 0.9)
+          .setDepth(13);
         this.extras.push(spark);
         scene.tweens.add({
           targets: spark,
           angle: 360,
-          duration: 2400,
+          duration: legendary ? 2400 : 3000,
           repeat: -1,
           onUpdate: (tween) => {
-            const t = tween.progress * Math.PI * 2 + (index / 3) * Math.PI * 2;
+            const t = tween.progress * Math.PI * 2 + (index / sparks) * Math.PI * 2;
             spark.setPosition(x + Math.cos(t) * 19, y + Math.sin(t) * 11);
-            spark.setAlpha(0.35 + 0.55 * (0.5 + 0.5 * Math.sin(t)));
+            spark.setAlpha(0.3 + 0.6 * (0.5 + 0.5 * Math.sin(t)));
           },
         });
       }
@@ -112,8 +120,8 @@ export class Pickup extends Phaser.Physics.Arcade.Sprite {
       });
       scene.tweens.add({
         targets: glow,
-        scaleX: { from: 0.82, to: 1.14 },
-        alpha: { from: 0.12, to: 0.3 },
+        scaleX: { from: 0.8, to: 1.16 },
+        alpha: { from: glowAlpha * 0.5, to: glowAlpha * 1.25 },
         duration: 1200,
         yoyo: true,
         repeat: -1,
