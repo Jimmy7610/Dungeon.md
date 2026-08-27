@@ -3,7 +3,7 @@ import { classifyItem, getItemSpec } from '../../markdown/items.ts';
 import type { ItemDefinition } from '../../markdown/types.ts';
 import { PLAYER } from '../config.ts';
 import { allWeapons, compareWeapons, getWeapon, UNARMED } from '../items/weapons.ts';
-import { inMeleeArc, knockbackVelocity, wrapAngle } from './CombatSystem.ts';
+import { aimDirection, inMeleeArc, knockbackVelocity, wrapAngle } from './CombatSystem.ts';
 import { GameState } from './GameState.ts';
 
 /** Build the item definition the parser would produce for this name. */
@@ -399,5 +399,84 @@ describe('state lifecycle', () => {
     state.collect(item('Rubber Duck'), 0);
     state.collect(item('Commit Shield'), 0);
     expect(state.passives().map((passive) => passive.id)).toEqual(['duck', 'shield']);
+  });
+});
+
+describe('mouse aim', () => {
+  const player = { x: 400, y: 300 };
+  const fallback = { x: 1, y: 0 };
+
+  it('points right when the pointer is right of the player', () => {
+    const aim = aimDirection(player, { x: 600, y: 300 }, fallback);
+    expect(aim.x).toBeCloseTo(1);
+    expect(aim.y).toBeCloseTo(0);
+  });
+
+  it('points left when the pointer is left of the player', () => {
+    const aim = aimDirection(player, { x: 200, y: 300 }, fallback);
+    expect(aim.x).toBeCloseTo(-1);
+    expect(aim.y).toBeCloseTo(0);
+  });
+
+  it('points up when the pointer is above the player', () => {
+    const aim = aimDirection(player, { x: 400, y: 100 }, fallback);
+    expect(aim.x).toBeCloseTo(0);
+    expect(aim.y).toBeCloseTo(-1);
+  });
+
+  it('points down when the pointer is below the player', () => {
+    const aim = aimDirection(player, { x: 400, y: 500 }, fallback);
+    expect(aim.y).toBeCloseTo(1);
+  });
+
+  it('returns a normalised diagonal', () => {
+    const aim = aimDirection(player, { x: 500, y: 400 }, fallback);
+    expect(aim.x).toBeCloseTo(Math.SQRT1_2);
+    expect(aim.y).toBeCloseTo(Math.SQRT1_2);
+    expect(Math.hypot(aim.x, aim.y)).toBeCloseTo(1);
+  });
+
+  it('always returns a unit vector', () => {
+    for (const target of [
+      { x: 401, y: 1000 },
+      { x: -900, y: 305 },
+      { x: 400.5, y: 296 },
+      { x: 12345, y: -6789 },
+    ]) {
+      expect(Math.hypot(...Object.values(aimDirection(player, target, fallback)))).toBeCloseTo(1);
+    }
+  });
+
+  it('keeps the previous aim when the pointer sits on the player', () => {
+    const previous = { x: 0, y: -1 };
+    const aim = aimDirection(player, { x: 400, y: 300 }, previous);
+    expect(aim).toEqual(previous);
+    const almost = aimDirection(player, { x: 401, y: 300 }, previous);
+    expect(almost).toEqual(previous);
+  });
+
+  it('never emits a zero or non-finite direction', () => {
+    expect(aimDirection(player, { x: 400, y: 300 }, { x: 0, y: 0 })).toEqual({ x: 1, y: 0 });
+    expect(aimDirection(player, { x: Number.NaN, y: 300 }, fallback)).toEqual(fallback);
+    const aim = aimDirection(player, { x: Number.POSITIVE_INFINITY, y: 300 }, fallback);
+    expect(Number.isFinite(aim.x) && Number.isFinite(aim.y)).toBe(true);
+  });
+
+  it('is derived from position only, so movement cannot change it', () => {
+    // The same pointer, with the player walking left underneath it: the aim
+    // keeps pointing right and simply re-resolves as the gap widens.
+    const pointer = { x: 600, y: 300 };
+    const walkingLeft = [400, 380, 360, 340].map((x) =>
+      aimDirection({ x, y: 300 }, pointer, fallback),
+    );
+    for (const aim of walkingLeft) {
+      expect(aim.x).toBeCloseTo(1);
+      expect(aim.y).toBeCloseTo(0);
+    }
+  });
+
+  it('flips to the other side once the player walks past the pointer', () => {
+    expect(aimDirection({ x: 590, y: 300 }, { x: 600, y: 300 }, fallback).x).toBeCloseTo(1);
+    expect(aimDirection({ x: 610, y: 300 }, { x: 600, y: 300 }, fallback).x).toBeCloseTo(-1);
   });
 });

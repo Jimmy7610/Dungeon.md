@@ -1514,8 +1514,10 @@ kbd {
   background: rgb(6 9 15 / 90%);
 }
 
-/* Canvas framing: a defined bezel instead of a floating rectangle. */
+/* Canvas framing: a defined bezel instead of a floating rectangle.
+   The crosshair makes it obvious the game is mouse-aimed. */
 .game-host canvas {
+  cursor: crosshair;
   border-radius: 3px;
   box-shadow:
     0 0 0 1px rgb(99 224 255 / 18%),
