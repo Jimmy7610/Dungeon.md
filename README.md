@@ -8,6 +8,8 @@ _Your README is now a dungeon._
 
 **▶ [Play Dungeon.md in your browser](https://jimmy7610.github.io/Dungeon.md/)**
 
+![Dungeon.md — Markdown becomes a playable dungeon](docs/media/dungeon-md-hero.png)
+
 > **What if your README was the game?**
 >
 > **Dungeon.md turns ordinary Markdown into a playable action game — live.**
@@ -26,6 +28,11 @@ _Your README is now a dungeon._
 **The Markdown isn't documentation for the game. The Markdown is the game.**
 
 **17 rooms · 64 enemies · 51 items · 6 weapons · 3 secret rooms · 1 final boss**
+
+![Dungeon.md live Markdown editing demo](docs/media/dungeon-md-demo.gif)
+
+_Recorded from the running app. Each edit lands in the editor on the left, and the dungeon on the
+right rebuilds itself from the new Markdown — enemy count, elites, loot, then the whole room theme._
 
 ````md
 ## Bug Basement
@@ -78,6 +85,8 @@ Secrets: **404 Room** (off Null Hall), **Stash Overflow** (off Package Graveyard
 Difficulty ramps by mixing enemy types, adding elites and moving equipment forward rather than by
 inflating enemy counts. The mandatory path alone is enough to beat LEGACY CODE - the secret loot
 (Root Access, Root Armor, `sudo`) makes the run easier and more fun, never obligatory.
+
+![Dungeon.md — LEGACY CODE boss fight](docs/media/dungeon-md-boss.png)
 
 ## How Markdown maps to the game
 
