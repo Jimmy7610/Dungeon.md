@@ -215,6 +215,29 @@ body {
   font-size: 14px;
 }
 
+/* The sound toggle swaps glyphs from its own pressed state, so the DOM only
+   ever has to flip one attribute. */
+.sound-toggle {
+  color: var(--muted);
+}
+
+.sound-toggle:hover {
+  color: var(--text);
+}
+
+.sound-toggle .sound-off,
+.sound-toggle[aria-pressed='true'] .sound-on {
+  display: none;
+}
+
+.sound-toggle[aria-pressed='true'] .sound-off {
+  display: block;
+}
+
+.sound-toggle[aria-pressed='true'] {
+  color: #6b7689;
+}
+
 .btn:focus-visible,
 [role="tab"]:focus-visible,
 textarea:focus-visible,
