@@ -1,3 +1,4 @@
+import type { SfxId } from '../audio/sfx.ts';
 import type { EventBus } from '../core/EventBus.ts';
 import type { GameDefinition, ParseWarning } from '../markdown/types.ts';
 import type { GameState, HudSnapshot } from './systems/GameState.ts';
@@ -67,6 +68,11 @@ export interface RuntimeEvents {
   warnings: ParseWarning[];
   /** Fired once the Phaser game has booted and textures exist. */
   ready: undefined;
+  /**
+   * A sound worth making just happened. Purely advisory: the runtime does
+   * not care whether anything is listening, and audio never answers back.
+   */
+  sfx: SfxId;
 }
 
 /**

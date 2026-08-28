@@ -1,3 +1,4 @@
+import { AudioService } from '../audio/AudioService.ts';
 import { DEVELOPER_DUNGEON } from '../demo/developerDungeon.ts';
 import type { RuntimeEvents } from '../game/events.ts';
 import { GameRuntime } from '../game/GameRuntime.ts';
@@ -10,6 +11,14 @@ import { HudFrame } from './HudFrame.ts';
 import { downloadText, exportFilename, markCompletedQuests } from './exportMarkdown.ts';
 
 type Mode = 'edit' | 'play';
+
+/** True when a keystroke belongs to a text field rather than to the game. */
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT';
+}
 
 function element<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -24,6 +33,7 @@ function element<T extends HTMLElement>(id: string): T {
 export class AppController {
   private readonly app = element('app');
   private readonly runtime = new GameRuntime(element('game-host'));
+  private readonly audio = new AudioService();
   private readonly hud = new HudController(this.runtime.bus);
   private readonly help = new HelpModal();
   private readonly hudFrame = new HudFrame(element('stage'), element('hud'));
@@ -48,6 +58,7 @@ export class AppController {
   private readonly dungeonName = element('dungeon-name');
   private readonly modeButton = element<HTMLButtonElement>('btn-mode');
   private readonly resetButton = element<HTMLButtonElement>('btn-reset');
+  private readonly soundButton = element<HTMLButtonElement>('btn-sound');
 
   private mode: Mode = 'edit';
   private resetArmed = false;
@@ -63,6 +74,7 @@ export class AppController {
     this.bindRuntimeEvents();
     this.bindButtons();
     this.bindGlobalKeys();
+    this.bindAudio();
 
     const definition = parseMarkdown(DEVELOPER_DUNGEON);
     this.editor.setValue(DEVELOPER_DUNGEON, { immediate: false });
@@ -74,6 +86,9 @@ export class AppController {
 
   private bindRuntimeEvents(): void {
     const bus = this.runtime.bus;
+    // Exactly one audio subscription for the lifetime of the page. The bus
+    // outlives every scene restart, so live editing cannot stack listeners.
+    bus.on('sfx', (id) => this.audio.play(id));
     bus.on('ready', () => this.hudFrame.attach());
     bus.on('empty', (isEmpty) => {
       this.emptyState.hidden = !isEmpty;
@@ -144,8 +159,50 @@ export class AppController {
     this.selectTab('game');
   }
 
+  /**
+   * Sound is on by default but silent until the browser lets us start: the
+   * AudioContext is only created inside a real gesture, so the first load
+   * never trips an autoplay warning.
+   */
+  private bindAudio(): void {
+    this.audio.installUnlockHandlers();
+    this.audio.onChange(() => this.syncSoundButton());
+    this.soundButton.addEventListener('click', () => this.toggleSound());
+    this.syncSoundButton();
+  }
+
+  private toggleSound(): void {
+    // This click *is* a gesture, so it is a valid moment to open the context.
+    // Without this, unmuting would stay silent until the next interaction.
+    this.audio.unlockNow();
+    const muted = this.audio.toggleMuted();
+    if (!muted) this.audio.play('uiClick');
+  }
+
+  private syncSoundButton(): void {
+    const muted = this.audio.isMuted;
+    this.soundButton.setAttribute('aria-pressed', String(muted));
+    this.soundButton.setAttribute('aria-label', muted ? 'Unmute sound effects' : 'Mute sound effects');
+    this.soundButton.title = muted
+      ? 'Sound effects muted — press M to unmute'
+      : 'Sound effects on — press M to mute';
+  }
+
   private bindGlobalKeys(): void {
     document.addEventListener('keydown', (event) => {
+      // M mutes, but never while the player is writing Markdown, and never as
+      // part of a shortcut the browser or OS owns.
+      if (
+        (event.key === 'm' || event.key === 'M') &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !isTypingTarget(event.target)
+      ) {
+        event.preventDefault();
+        this.toggleSound();
+        return;
+      }
       if (event.key !== 'Escape') return;
       if (this.help.isOpen) {
         this.help.close();

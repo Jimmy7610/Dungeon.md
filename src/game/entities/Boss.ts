@@ -5,7 +5,12 @@ import { BOSS, COLORS } from '../config.ts';
 
 const GLYPHS = ['{', '}', '</>', ';', 'null', '=>', '404', 'any', 'NaN', 'TODO'];
 
-export type BossAction = 'charge' | 'volley' | 'enrage';
+/**
+ * `telegraph` is announced when the wind-up *starts*; `charge` when the
+ * boss actually launches. Only the presentation layer uses `telegraph` -
+ * it carries no behaviour.
+ */
+export type BossAction = 'charge' | 'volley' | 'enrage' | 'telegraph';
 
 /**
  * The final encounter. Same "chase the player" core as a regular enemy, plus a
@@ -138,6 +143,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
       if (time >= this.nextChargeAt) {
         this.nextChargeAt = time + BOSS.chargeIntervalMs;
         this.telegraphUntil = time + BOSS.chargeTelegraphMs;
+        this.onAction('telegraph');
         this.scene.time.delayedCall(BOSS.chargeTelegraphMs, () => {
           if (!this.active) return;
           const chargeAngle = Math.atan2(targetY - this.y, targetX - this.x);

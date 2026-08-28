@@ -21,6 +21,7 @@ import { Enemy } from '../entities/Enemy.ts';
 import { DoorObject, NpcObject, type Interactable } from '../entities/Interactable.ts';
 import { Pickup } from '../entities/Pickup.ts';
 import { buildRoomLayout, type RoomLayout } from '../generation/RoomBuilder.ts';
+import type { SfxId } from '../../audio/sfx.ts';
 import type { EquipPayload, SceneContext } from '../events.ts';
 import { compareWeapons, deltaSymbol, getWeapon } from '../items/weapons.ts';
 import { inMeleeArc, knockbackVelocity } from '../systems/CombatSystem.ts';
@@ -41,6 +42,16 @@ type Keys = Record<
  * gives us a guaranteed clean slate: Phaser destroys every object, tween,
  * timer and listener created here.
  */
+/**
+ * A hidden door the player has not yet been sent through a broken link to.
+ * Only these get the reveal sound; ordinary doors would make it meaningless.
+ */
+function isSecretDoor(target: Interactable | undefined): boolean {
+  if (!target || target.kind !== 'door') return false;
+  const door = target as DoorObject;
+  return door.definition.hidden === true && door.definition.broken !== true;
+}
+
 export class DungeonScene extends Phaser.Scene {
   private roomId = '';
   private fromRoom: string | undefined;
@@ -115,6 +126,7 @@ export class DungeonScene extends Phaser.Scene {
     this.context.state.currentRoom = room.id;
     this.context.state.visitedRooms.add(room.id);
     for (const quest of this.context.quests.report({ kind: 'room', room: room.id })) {
+      this.sfx('quest');
       this.context.bus.emit('toast', { text: `Quest complete — ${quest.text}`, kind: 'quest' });
     }
     this.reportRoomClearIfEmpty();
@@ -700,6 +712,14 @@ export class DungeonScene extends Phaser.Scene {
    * responsive CSS scaling and any camera transform are accounted for - screen
    * pixels are never assumed to equal world units.
    */
+  /**
+   * Announce a sound. Fire-and-forget by design: nothing here may influence
+   * gameplay, and no call site is allowed to depend on the result.
+   */
+  private sfx(id: SfxId): void {
+    this.context.bus.emit('sfx', id);
+  }
+
   private rememberAim(pointer: Phaser.Input.Pointer): void {
     const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     this.context.setAimPoint(world.x, world.y);
@@ -845,6 +865,8 @@ export class DungeonScene extends Phaser.Scene {
     const text = nearest ? nearest.promptText() : null;
     if (text !== this.currentPrompt) {
       this.currentPrompt = text;
+      // Walking up to a secret door is the moment it stops being a wall.
+      if (text !== null && isSecretDoor(nearest)) this.sfx('secret');
       this.context.bus.emit('prompt', text);
     }
   }
@@ -904,6 +926,7 @@ export class DungeonScene extends Phaser.Scene {
     }
     const door = target as DoorObject;
     if (!door.canOpen()) {
+      this.sfx('denied');
       this.context.bus.emit('toast', { text: door.promptText(), kind: 'warn' });
       return;
     }
@@ -921,6 +944,7 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     state.collectedItems.add(pickup.definition.id);
+    this.sfx('equip');
     this.burst(pickup.x, pickup.y, 0x63e0ff, 12);
     pickup.destroy();
     this.pickups = this.pickups.filter((entry) => entry.active);
@@ -931,6 +955,7 @@ export class DungeonScene extends Phaser.Scene {
       kind: 'item',
       item: pickup.definition.name.toLowerCase(),
     })) {
+      this.sfx('quest');
       this.context.bus.emit('toast', { text: `Quest complete — ${quest.text}`, kind: 'quest' });
     }
     this.context.publishHud();
@@ -939,6 +964,7 @@ export class DungeonScene extends Phaser.Scene {
   private leaveRoom(targetRoom: string): void {
     if (this.transitioning) return;
     this.transitioning = true;
+    this.sfx('door');
     this.context.bus.emit('prompt', null);
     this.context.bus.emit('equip', null);
     this.player.setVelocity(0, 0);
@@ -973,6 +999,7 @@ export class DungeonScene extends Phaser.Scene {
     const damage = state.attackDamage({ overcharged });
 
     this.showSlash(angle, range, arc, weapon.accent, overcharged);
+    this.sfx('attack');
 
     for (const enemy of reached) {
       if (enemy.active) this.hitEnemy(enemy, damage);
@@ -981,6 +1008,7 @@ export class DungeonScene extends Phaser.Scene {
     if (boss?.active && bossInReach) {
       this.floatingNumber(boss.x, boss.y - 20, damage, overcharged ? '#ffd24d' : '#8dffb0');
       const died = boss.takeDamage(damage);
+      this.sfx('bossHit');
       this.context.bus.emit('boss', this.bossPayload(boss));
       if (died) this.killBoss(boss);
     }
@@ -1012,6 +1040,7 @@ export class DungeonScene extends Phaser.Scene {
       this.context.state.knockback() * enemy.knockbackScale,
     );
     (enemy.body as Phaser.Physics.Arcade.Body | null)?.setVelocity(push.x, push.y);
+    this.sfx('enemyHit');
     if (enemy.takeDamage(damage)) this.killEnemy(enemy);
   }
 
@@ -1116,6 +1145,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private killEnemy(enemy: Enemy): void {
     this.context.state.defeatedEnemies.add(enemy.bodyId);
+    this.sfx('enemyDeath');
     this.burst(enemy.x, enemy.y, enemy.elite ? 0xff9f1c : 0xff6b52, enemy.elite ? 26 : 14);
     if (enemy.elite) {
       this.context.state.gold += ELITE.goldDrop;
@@ -1132,6 +1162,7 @@ export class DungeonScene extends Phaser.Scene {
     const total = this.room.enemies.reduce((sum, group) => sum + group.count, 0);
     if (total === 0) return;
     for (const quest of this.context.quests.report({ kind: 'enemies', room: this.room.id })) {
+      this.sfx('quest');
       this.context.bus.emit('toast', { text: `Quest complete — ${quest.text}`, kind: 'quest' });
     }
   }
@@ -1139,6 +1170,7 @@ export class DungeonScene extends Phaser.Scene {
   private killBoss(boss: Boss): void {
     const definition = boss.definition;
     this.context.state.defeatedBosses.add(definition.id);
+    this.sfx('bossDeath');
     this.burst(boss.x, boss.y, 0x8dffb0, 40);
     if (!this.context.reducedMotion) this.cameras.main.shake(420, 0.01);
     boss.destroy();
@@ -1146,6 +1178,7 @@ export class DungeonScene extends Phaser.Scene {
     this.context.bus.emit('boss', null);
 
     for (const quest of this.context.quests.report({ kind: 'boss', boss: definition.id })) {
+      this.sfx('quest');
       this.context.bus.emit('toast', { text: `Quest complete — ${quest.text}`, kind: 'quest' });
     }
     this.context.publishHud();
@@ -1161,6 +1194,12 @@ export class DungeonScene extends Phaser.Scene {
   private onBossAction(action: BossAction): void {
     const boss = this.boss;
     if (!boss?.active) return;
+    if (action === 'telegraph') {
+      // Presentation only. The wind-up has already been scheduled by the boss;
+      // this branch exists so the warning is audible as well as visible.
+      this.sfx('bossCharge');
+      return;
+    }
     if (action === 'charge') {
       this.burst(boss.x, boss.y, 0xff5c4d, 10);
       return;
@@ -1183,6 +1222,7 @@ export class DungeonScene extends Phaser.Scene {
       return;
     }
     // volley
+    this.sfx('bossVolley');
     const base = Math.atan2(this.player.y - boss.y, this.player.x - boss.x);
     for (const offset of [-0.35, 0, 0.35]) {
       const shard = this.physics.add.sprite(boss.x, boss.y, 'shard').setDepth(19);
@@ -1220,6 +1260,9 @@ export class DungeonScene extends Phaser.Scene {
     this.player.grantInvulnerability(this.time.now);
 
     if (result.blocked) {
+      // The shield ate it: a flat "no" rather than the hurt sound, so the
+      // player can hear the difference without looking at the HUD.
+      this.sfx('denied');
       this.burst(this.player.x, this.player.y, 0xcbd5e1, 14);
       this.context.bus.emit('toast', { text: 'Commit Shield held', kind: 'quest' });
       this.context.publishHud();
@@ -1233,6 +1276,7 @@ export class DungeonScene extends Phaser.Scene {
     );
     (this.player.body as Phaser.Physics.Arcade.Body | null)?.setVelocity(push.x, push.y);
     const armorOnly = result.armorLost > 0 && result.healthLost === 0;
+    this.sfx('playerHurt');
     this.burst(this.player.x, this.player.y, armorOnly ? 0x63e0ff : 0xff5c4d, 8);
     if (!this.context.reducedMotion) this.cameras.main.shake(130, 0.008);
     this.cameras.main.flash(120, armorOnly ? 30 : 90, 20, armorOnly ? 70 : 20);
@@ -1274,6 +1318,7 @@ export class DungeonScene extends Phaser.Scene {
     }
 
     this.context.state.collectedItems.add(item.id);
+    this.sfx('pickup');
     this.burst(pickup.x, pickup.y, 0xf5b942, 10);
     pickup.destroy();
     this.pickups = this.pickups.filter((entry) => entry.active);
@@ -1286,6 +1331,7 @@ export class DungeonScene extends Phaser.Scene {
       kind: 'item',
       item: item.name.toLowerCase(),
     })) {
+      this.sfx('quest');
       this.context.bus.emit('toast', { text: `Quest complete — ${quest.text}`, kind: 'quest' });
     }
     this.context.publishHud();
